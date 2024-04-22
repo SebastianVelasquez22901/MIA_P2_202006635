@@ -1,0 +1,271 @@
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=45 -driveletter=A -name=Particion1 -unit=K
+fdisk -size=2 -driveletter=A -name=Particion2 -unit=K
+fdisk -size=4 -driveletter=A -name=Particion3 -unit=K
+fdisk -size=2 -driveletter=A -name=Particion4 -unit=K
+fdisk -size=2 -driveletter=B -name=Particion5 -unit=K
+fdisk -size=2 -driveletter=B -name=Particion6 -unit=K
+fdisk -add=100 -size=100 -unit=K -driveletter=A -name=Particion1
+fdisk -name=Particion3 -delete=full -driveletter=A
+fdisk -name=Particion22 -delete=full -driveletter=A
+fdisk -type=E -driveletter=A -unit=K -name=ParticionE -size=12
+fdisk -size=2 -type=L -unit=K -fit=bf -driveletter=A -name="Logica1"
+
+mount -driveletter=A -name=Particion2
+mount -driveletter=A -name=Particion3
+mount -driveletter=A -name=Particion4
+mount -driveletter=B -name=Particion5
+mount -driveletter=B -name=Particion6
+mount -driveletter=A -name=Particion1
+unmount -id=A165
+
+rep -id=A165 -path=reporte -name=mbr
+rep -id=A165 -path=reporte -name=disk
+rep -id=A165 -path=prueba -name=inode
+rep -id=A165 -path=prueba -name=block_inode
+
+mkfs -type=full -id=A165
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+
+mount -driveletter=A -name=Particion1
+login -user=root -pass=123 -id=A165
+rmgrp -name=usuarios
+rep -id=A165 -path=prueba -name=inode
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+rep -id=A165 -path=prueba -name=inode
+rep -id=A165 -path=prueba -name=tree
+rep -id=A165 -path=prueba -name=Journaling
+
+execute -path=exec.txt
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+mkusr -user=user1 -pass=usuario -grp=usuarios
+rep -id=A165 -path=prueba -name=tree
+
+mount -driveletter=A -name=Particion1
+login -user=root -pass=123 -id=A165
+mkdir -path=/NuevaCarperta
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165 -fs=3fs
+rep -id=A165 -path=prueba -name=Journaling
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkfile -size=15 -path=/a.txt -r
+rep -id=A165 -path=prueba -name=tree
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+mkusr -user=user1 -pass=usuario -grp=usuarios
+mkdir -path=/C1
+mkdir -path=/SegundaC
+rep -id=A165 -path=prueba -name=tree
+
+execute -path=exec.txt
+
+login -user=usr1 -pass=usuario   -id=A165
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+mkusr -user=user1 -pass=usuario -grp=usuarios
+mkdir -path=/Z1
+rep -id=A165 -path=prueba -name=tree
+
+mkfile -path="/archivo1.txt"
+mkfile -path="/archivo2.txt"
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+mkusr -user=user1 -pass=usuario -grp=usuarios
+mkdir -path=/Z1
+mkdir -path=/Z2
+mkdir -path=/Z2/Z4
+mkdir -path=/Z3
+mkdir -path=/Z5
+mkfile -path=/prueba.txt -size=10
+
+chown -path=/home -r -user=user1
+
+[[C1][C2][C3][C4][C5]           |[A1][A2][A3]           ]
+
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+fdisk -size=180 -driveletter=A -name=Particion1 -unit=K
+mount -driveletter=A -name=Particion1
+mkfs -type=full -id=A165 -fs=3fs
+login -user=root -pass=123 -id=A165
+mkgrp -name=usuarios
+mkusr -user=user1 -pass=usuario -grp=usuarios
+mkdir -path=/Z1
+mkdir -path=/Z2
+mkfile -path=/Archivo1.txt -size=1
+chown -path=/Z1 -r -user=user1
+
+
+
+
+
+
+execute -path=exec.txt
+------------------------------------------------Calificacion------------------------------------------------
+
+
+
+#ENTRADA SEGUNDA PARTE MIA
+#Seccion B - DANIEL CHICAS
+#1S 2024
+#CAMBIAR /home/daniel -> POR SU USUARIO EJ ->  /home/SU_USER
+#CAMBIAR LOS IDS
+
+
+#CREACION DE DISCOS------------------------------------------------
+
+mkdisk -size=250 -unit=K
+
+#CREACION DE PARTICION------------------------------------------------
+
+fdisk -size=180 -driveletter=A -name=ParticionEXT2 -unit=K
+
+#MOUNT------------------------------------------------
+
+mount -driveletter=A -name=ParticionEXT2
+
+#CREACION DE SISTEMA DE ARCHIVOS------------------------------------------------
+
+mkfs -type=full -id=A165
+
+#EXT2------------------------------------------------
+
+login -user=root -pass=123 -id=A165
+
+#CREACION DE GRUPO------------------------------------------------
+
+mkgrp -name=usuarios
+
+#CREACION DE USUARIO------------------------------------------------
+
+mkusr -user=user1 -pass=usuario -grp=usuarios
+
+
+#CREACION DE CARPETAS------------------------------------------------
+
+mkdir -path=/Z1
+mkdir -path=/Z2
+mkdir -path=/Z2/Z4
+mkdir -path=/Z3
+mkdir -path=/Z5
+
+#CREACION DE ARCHIVOS------------------------------------------------
+
+mkfile -path=/prueba.txt -size=10
+
+#CREACION DE REPORTES EXT2------------------------------------------------
+
+rep -id=A165 -path=ReporteExt2Tree -name=tree
+rep -id=A165 -path=ReporteExt2Mbr -name=mbr
+rep -id=A165 -path=ReporteExt2Disk -name=disk
+rep -id=A165 -path=ReporteExt2Inode -name=inode
+rep -id=A165 -path=ReporteExt2Block -name=block
+rep -id=A165 -path=ReporteExt2BmInode -name=bm_inode
+rep -id=A165 -path=ReporteExt2BmBlock -name=bm_block
+rep -id=A165 -path=ReporteExt2Journaling -name=journaling
+
+
+logout
+logout
+login -user=user1 -pass=usuario -id=A165
+logout
+
+
+
+#EXT3------------------------------------------------
+
+rmdisk -driveletter=A
+mkdisk -size=250 -unit=K
+
+fdisk -size=180 -driveletter=A -name=ParticionEXT3 -unit=K
+
+mount -driveletter=A -name=ParticionEXT3
+
+mkfs -type=full -id=A165 -fs=3fs
+
+
+login -user=root -pass=123 -id=A165
+
+#CREACION DE GRUPO------------------------------------------------
+mkgrp -name=usuarios
+
+#CREACION DE USUARIO------------------------------------------------
+mkusr -user=user3 -pass=ext3 -grp=usuarios
+
+
+#CREACION DE CARPETAS------------------------------------------------
+
+mkdir -path=/Z1
+mkdir -path=/Z2
+
+#CREACION DE ARCHIVOS------------------------------------------------
+
+mkfile -path=/ext3.txt -size=16
+
+#CHOWN------------------------------------------------
+
+chown -path=/Z1 -r -user=user1
+
+rep -id=A165 -path=ReporteExt3Tree -name=tree
+rep -id=A165 -path=ReporteExt3Mbr -name=mbr
+rep -id=A165 -path=ReporteExt3Disk -name=disk
+rep -id=A165 -path=ReporteExt3Inode -name=inode
+rep -id=A165 -path=ReporteExt3Block -name=block
+rep -id=A165 -path=ReporteExt3BmInode -name=bm_inode
+rep -id=A165 -path=ReporteExt3BmBlock -name=bm_block
+rep -id=A165 -path=ReporteExt3Journaling -name=journaling
+
+
+
+
+
+

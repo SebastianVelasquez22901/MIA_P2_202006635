@@ -1,0 +1,63 @@
+#ENTRADA SEGUNDA PARTE MIA
+#Seccion B - DANIEL CHICAS
+#1S 2024
+#CAMBIAR /home/daniel -> POR SU USUARIO EJ ->  /home/SU_USER
+#CAMBIAR LOS IDS
+
+
+#CREACION DE DISCOS------------------------------------------------
+
+mkdisk -size=250 -unit=K
+
+#CREACION DE PARTICION------------------------------------------------
+
+fdisk -size=180 -driveletter=A -name=ParticionEXT2 -unit=K
+
+#MOUNT------------------------------------------------
+
+mount -driveletter=A -name=ParticionEXT2
+
+#CREACION DE SISTEMA DE ARCHIVOS------------------------------------------------
+
+mkfs -type=full -id=A165
+
+#EXT2------------------------------------------------
+
+login -user=root -pass=123 -id=A165
+
+#CREACION DE GRUPO------------------------------------------------
+
+mkgrp -name=usuarios
+
+#CREACION DE USUARIO------------------------------------------------
+
+mkusr -user=user1 -pass=usuario -grp=usuarios
+
+
+#CREACION DE CARPETAS------------------------------------------------
+
+mkdir -path=/Z1
+mkdir -path=/Z2
+mkdir -path=/Z2/Z4
+mkdir -path=/Z3
+mkdir -path=/Z5
+
+#CREACION DE ARCHIVOS------------------------------------------------
+
+mkfile -path=/prueba.txt -size=10
+
+#CREACION DE REPORTES EXT2------------------------------------------------
+
+rep -id=A165 -path=ReporteExt2Tree -name=tree
+rep -id=A165 -path=ReporteExt2Mbr -name=mbr
+rep -id=A165 -path=ReporteExt2Disk -name=disk
+rep -id=A165 -path=ReporteExt2Inode -name=inode
+rep -id=A165 -path=ReporteExt2Block -name=block
+rep -id=A165 -path=ReporteExt2BmInode -name=bm_inode
+rep -id=A165 -path=ReporteExt2BmBlock -name=bm_block
+rep -id=A165 -path=ReporteExt2Journaling -name=journaling
+
+logout
+logout
+login -user=user1 -pass=usuario -id=A165
+logout

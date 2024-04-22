@@ -1,0 +1,2306 @@
+package Reportes
+
+import (
+	"Proyecto/Comandos"
+	"Proyecto/Structs"
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"unsafe"
+
+	"github.com/awalterschulze/gographviz"
+)
+
+type Apuntadores struct {
+	Inodos    []string
+	Bloques   []string
+	Direccion []string
+}
+
+var Ap = Apuntadores{}
+
+func ValidarDatosReporte(context []string) {
+	name := ""
+	path := ""
+	id := ""
+	ruta := ""
+	for i := 0; i < len(context); i++ {
+		current := context[i]
+		comando := strings.Split(current, "=")
+		if Comandos.Comparar(comando[0], "name") {
+			name = comando[1]
+		} else if Comandos.Comparar(comando[0], "path") {
+			path = strings.ReplaceAll(comando[1], "\"", "")
+		} else if Comandos.Comparar(comando[0], "id") {
+			id = comando[1]
+		} else if Comandos.Comparar(comando[0], "ruta") {
+			ruta = comando[1]
+		}
+	}
+	if path == "" || name == "" || id == "" {
+		Comandos.Error("REP", "Requiere parámetros obligatorios")
+		return
+	}
+
+	if Comandos.Comparar(name, "mbr") {
+		MBR_R(path, id)
+		return
+	} else if Comandos.Comparar(name, "disk") {
+		DISK_R(path, id, ruta)
+		return
+	} else if Comandos.Comparar(name, "tree") {
+		ReporteTree(path, id)
+		return
+	} else if Comandos.Comparar(name, "bm_inode") {
+		BitMap_inodo(path, id)
+	} else if Comandos.Comparar(name, "bm_block") {
+		BitMap_block(path, id)
+	} else if Comandos.Comparar(name, "inode") {
+		Report_Inode(path, id)
+	} else if Comandos.Comparar(name, "block") {
+		Report_Block(path, id)
+	} else if Comandos.Comparar(name, "sb") {
+		SB_Reporte(path, id)
+	} else if Comandos.Comparar(name, "Journaling") {
+		Journal_Reporte(path, id)
+	} else {
+		Comandos.Error("REP", "Nombre de reporte no válido")
+		return
+	}
+
+}
+
+func Journal_Reporte(destino string, id string) {
+	Ap.Bloques = nil
+	Ap.Inodos = nil
+	Ap.Direccion = nil
+	fmt.Println("Generando reporte de Jornal")
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	spr := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+	tamJournal := int(unsafe.Sizeof(Structs.Journaling{}))
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &spr)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	tempJournal := Structs.NewJournal()
+	file.Seek(spr.S_journal_start, 0)
+	data = lecturaB(file, tamJournal)
+	buffer = bytes.NewBuffer(data)
+	err_ = binary.Read(buffer, binary.BigEndian, &tempJournal)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+	Operacion := string(bytes.Trim(tempJournal.Operacion[:], "\x00"))
+	Fecha := string(bytes.Trim(tempJournal.Fecha[:], "\x00"))
+	Path := string(bytes.Trim(tempJournal.Path[:], "\x00"))
+	Contenido := string(bytes.Trim(tempJournal.Contenido[:], "\x00"))
+	Codigo_HTML := fmt.Sprintf(`<<TABLE>
+    <TR style="background-color: gray; color: white;">
+		<TD BGCOLOR="#006400">
+			<FONT COLOR="white">Operacion</FONT>
+		</TD>
+		<TD BGCOLOR="#006400">
+			<FONT COLOR="white">Path</FONT>
+		</TD>
+		<TD BGCOLOR="#006400">
+			<FONT COLOR="white">Contenido</FONT>
+		</TD>
+		<TD BGCOLOR="#006400">
+			<FONT COLOR="white">Fecha</FONT>
+		</TD>
+	</TR>
+    <TR>
+        <TD>%s</TD>
+        <TD>%s</TD>
+        <TD>%s</TD>
+        <TD>%s</TD>
+    </TR>
+	`, Operacion, Path, Contenido, Fecha)
+	tempJournal = Structs.NewJournal()
+	file.Seek(spr.S_journal_start+int64(tamJournal), 0)
+	data = lecturaB(file, tamJournal)
+	buffer = bytes.NewBuffer(data)
+	err_ = binary.Read(buffer, binary.BigEndian, &tempJournal)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	Operacion = string(bytes.Trim(tempJournal.Operacion[:], "\x00"))
+	Fecha = string(bytes.Trim(tempJournal.Fecha[:], "\x00"))
+	Path = string(bytes.Trim(tempJournal.Path[:], "\x00"))
+	Contenido = string(bytes.Trim(tempJournal.Contenido[:], "\x00"))
+	Codigo_HTML += fmt.Sprintf(`
+	<TR>
+        <TD>%s</TD>
+        <TD>%s</TD>
+        <TD>%s</TD>
+        <TD>%s</TD>
+    </TR>
+	`, Operacion, Path, Contenido, Fecha)
+	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
+	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func SB_Reporte(destino string, id string) {
+	Ap.Bloques = nil
+	Ap.Inodos = nil
+	Ap.Direccion = nil
+	fmt.Println("Generando reporte de superbloque")
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	spr := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &spr)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+	Codigo_HTML := fmt.Sprintf(`
+<<TABLE>
+    <TR style="background-color: #006400; color: white;">
+    <TD BGCOLOR="#006400">
+        <FONT COLOR="white">Reporte SuperBloque</FONT>
+    </TD>
+    <TD BGCOLOR="#006400">
+        <FONT COLOR="white">Datos</FONT>
+    </TD>
+	</TR>
+    <TR>
+        <TD>S_filesystem_type</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_inodes_count</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_blocks_count</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_free_blocks_count</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_free_inodes_count</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_mtime</TD><TD>%s</TD>
+    </TR>
+    <TR>
+        <TD>S_umtime</TD><TD>%s</TD>
+    </TR>
+    <TR>
+        <TD>S_mnt_count</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_magic</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_inode_size</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_block_size</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_firts_ino</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_first_blo</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_bm_inode_start</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_bm_block_start</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_inode_start</TD><TD>%d</TD>
+    </TR>
+    <TR>
+        <TD>S_block_start</TD><TD>%d</TD>
+    </TR>
+`, spr.S_filesystem_type, spr.S_inodes_count, spr.S_blocks_count, spr.S_free_blocks_count, spr.S_free_inodes_count, string(spr.S_mtime[:]), string(spr.S_umtime[:]), spr.S_mnt_count, spr.S_magic, spr.S_inode_size, spr.S_block_size, spr.S_firts_ino, spr.S_first_blo, spr.S_bm_inode_start, spr.S_bm_block_start, spr.S_inode_start, spr.S_block_start)
+	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
+	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func MBR_R(path string, id string) {
+
+	primeraLetra := id[0:1]
+	primeraLetra = primeraLetra + ".dsk"
+
+	mbr := Comandos.LeerDisco(string(primeraLetra))
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	// Añade un nodo como tabla
+
+	mbrTamano := strconv.FormatInt(mbr.Mbr_tamano, 10)
+	mbrFechaCreacion := mbr.Mbr_fecha_creacion
+	mbrDiskSignature := strconv.FormatInt(mbr.Mbr_dsk_signature, 10)
+
+	Codigo_HTML := fmt.Sprintf(`<<TABLE>
+    <TR style="background-color: #4B0082; color: white;">
+        <TD BGCOLOR="#4B0082">
+            <FONT COLOR="white">Reporte MBR</FONT>
+        </TD>
+        <TD BGCOLOR="#4B0082">
+            <FONT COLOR="white">Datos</FONT>
+        </TD>
+    </TR>
+    <TR>
+        <TD>Mbr_tamano</TD><TD>%s</TD>
+    </TR>
+    <TR>
+        <TD>Mbr_fecha_creacion</TD><TD>%s</TD>
+    </TR>
+    <TR>
+        <TD>Mbr_disk_signature</TD><TD>%s</TD>
+    </TR>
+	`, mbrTamano, mbrFechaCreacion, mbrDiskSignature)
+	particiones := Comandos.GetParticiones(*mbr)
+	for i := 0; i < len(particiones); i++ {
+		particion := particiones[i]
+		Codigo_HTML += fmt.Sprintf(`
+		<TR style="background-color: #4B0082; color: white;">
+			<TD BGCOLOR="#4B0082">
+				<FONT COLOR="white">Particion</FONT>
+			</TD>
+			<TD BGCOLOR="#4B0082">
+
+        	</TD>
+		</TR>
+		`)
+		if particion.Part_type != "E"[0] {
+
+			TipoParticion := string(particion.Part_type)
+			PartStatus := string(particion.Part_status) // Convert byte to string
+			PartStart := strconv.FormatInt(particion.Part_start, 10)
+			PartSize := strconv.FormatInt(particion.Part_size, 10)
+			PartFit := string(particion.Part_fit)
+
+			PartName := ""
+			for _, b := range particion.Part_name {
+				if b != 0 {
+					PartName += string(b)
+				} else {
+					break
+				}
+			}
+			Codigo_HTML += fmt.Sprintf(`
+
+			<TR>
+				<TD>Part_status</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_type</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_fit</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_start</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_size</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_name</TD><TD>%s</TD>
+			</TR>
+		`, PartStatus, TipoParticion, PartFit, PartStart, PartSize, PartName)
+		} else if particion.Part_type == "E"[0] || particion.Part_type == "e"[0] {
+			TipoParticion := string(particion.Part_type)
+			PartStatus := string(particion.Part_status) // Convert byte to string
+			PartStart := strconv.FormatInt(particion.Part_start, 10)
+			PartSize := strconv.FormatInt(particion.Part_size, 10)
+			PartFit := string(particion.Part_fit)
+
+			PartName := ""
+			for _, b := range particion.Part_name {
+				if b != 0 {
+					PartName += string(b)
+				} else {
+					break
+				}
+			}
+			Codigo_HTML += fmt.Sprintf(`
+
+			<TR>
+				<TD>Part_status</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_type</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_fit</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_start</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_size</TD><TD>%s</TD>
+			</TR>
+			<TR>
+				<TD>Part_name</TD><TD>%s</TD>
+			</TR>
+			`, PartStatus, TipoParticion, PartFit, PartStart, PartSize, PartName)
+			// Buscar particiones lógicas
+			ebrs := Comandos.GetLogicas(particion, primeraLetra)
+			for i := 0; i < len(ebrs); i++ {
+				Codigo_HTML += fmt.Sprintf(`
+				<TR style="background-color: #FA8072; color: white;">
+					<TD BGCOLOR="#FA8072">
+						<FONT COLOR="white">Partición logica</FONT>
+					</TD>
+					<TD BGCOLOR="#FA8072">
+
+					</TD>
+				</TR>
+				`)
+				ebr := ebrs[i]
+				TipoParticion_Logica := string("L")
+				PartStatus_Logica := string(ebr.Part_status) // Convert byte to string
+				PartStart_Logica := strconv.FormatInt(ebr.Part_start, 10)
+				PartSize_Logica := strconv.FormatInt(ebr.Part_size, 10)
+				PartFit_Logica := string(particion.Part_fit)
+
+				PartName_Logica := ""
+
+				for j := 0; j < len(ebr.Part_name); j++ {
+					if ebr.Part_name[j] != 0 {
+						PartName_Logica += string(ebr.Part_name[j])
+					}
+				}
+
+				Codigo_HTML += fmt.Sprintf(`
+
+				<TR>
+					<TD>Part_status</TD><TD>%s</TD>
+				</TR>
+				<TR>
+					<TD>Part_type</TD><TD>%s</TD>
+				</TR>
+				<TR>
+					<TD>Part_fit</TD><TD>%s</TD>
+				</TR>
+				<TR>
+					<TD>Part_start</TD><TD>%s</TD>
+				</TR>
+				<TR>
+					<TD>Part_size</TD><TD>%s</TD>
+				</TR>
+				<TR>
+					<TD>Part_name</TD><TD>%s</TD>
+				</TR>
+			`, PartStatus_Logica, TipoParticion_Logica, PartFit_Logica, PartStart_Logica, PartSize_Logica, PartName_Logica)
+			}
+		}
+	}
+	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
+	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+	Rdot := path + ".dot"
+	// Guarda el código DOT en un archivo
+	err := ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	R := path + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func DISK_R(path string, id string, ruta string) {
+	fmt.Println("Generando reporte DISK")
+
+	primeraLetra := id[0:1]
+	primeraLetra = primeraLetra + ".dsk"
+	mbr := Comandos.LeerDisco(string(primeraLetra))
+	particiones := Comandos.GetParticiones(*mbr)
+	extended := Structs.NewParticion()
+	tam_disk := int(mbr.Mbr_tamano)
+	tam_libre := tam_disk
+
+	Codigo_HTML := fmt.Sprintf(`<TABLE BORDER="0" CELLBORDER="3" CELLSPACING="0">
+	               <TR>
+	                   <TD BGCOLOR="lightblue"><FONT POINT-SIZE="20">MBR</FONT></TD>
+	               `)
+	puntero := int(float64(tam_disk) * 0.1)
+	for i := 0; i < len(particiones); i++ {
+		particion := particiones[i]
+		if particion.Part_status == "1"[0] {
+			if particion.Part_type == "E"[0] || particion.Part_type == "e"[0] {
+				extended = particion
+				tamano := int(particion.Part_size)
+				puntero += int(particion.Part_size)
+				tam_libre -= int(particion.Part_size)
+				tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+				Codigo_HTML += fmt.Sprintf(`
+				<TD>
+					<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+						<TR>
+					<TD BGCOLOR="green"><FONT COLOR="black">Particion extendida %s <BR/></FONT>
+					<FONT POINT-SIZE="10">Tamaño: %s  %% </FONT>
+					</TD>
+				`, strconv.Itoa(i+1), strconv.Itoa(tamano))
+
+				ebrs := Comandos.GetLogicas(extended, primeraLetra)
+				for i := 0; i < len(ebrs); i++ {
+					ebr := ebrs[i]
+					if ebr.Part_status == '1' {
+
+						tamano := int(ebr.Part_size)
+						tam_libre -= int(ebr.Part_size)
+						tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+						Codigo_HTML += fmt.Sprintf(`<TD BGCOLOR="#FA8072">Particion logica %s <BR/>
+							<FONT POINT-SIZE="7">Tamaño: %s  %% </FONT>
+							</TD>
+						`, strconv.Itoa(i+1), strconv.Itoa(tamano))
+
+					}
+				}
+				Codigo_HTML += fmt.Sprintf(`</TR>
+					</TABLE>
+				</TD>`)
+			} else if particion.Part_type == "P"[0] || particion.Part_type == "p"[0] {
+				tamano := int(particion.Part_size)
+				tam_libre -= int(particion.Part_size)
+				tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+
+				Codigo_HTML += fmt.Sprintf(`
+				<TD BGCOLOR="#4B0082">
+					<FONT COLOR="white">Particion primaria %s </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+				`, strconv.Itoa(i+1), strconv.Itoa(tamano))
+
+			}
+		} else {
+			// convierte i a string
+			if i == 0 {
+				fmt.Println("Particion 1 libre")
+				if particiones[i+1].Part_start == -1 {
+					tamano := tam_disk - puntero
+					tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+					Codigo_HTML += fmt.Sprintf(`
+					<TD BGCOLOR="White">
+						<FONT COLOR="black">Espacio libre </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+					`, strconv.Itoa(tamano))
+					break
+				}
+			} else if i == 1 {
+				fmt.Println("Particion 2 libre")
+				if particiones[i+1].Part_start == -1 {
+					tamano := tam_disk - puntero
+					tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+					Codigo_HTML += fmt.Sprintf(`
+					<TD BGCOLOR="White">
+						<FONT COLOR="black">Espacio libre </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+					`, strconv.Itoa(tamano))
+					break
+				}
+
+			} else if i == 2 {
+				fmt.Println("Particion 3 libre")
+
+				if particiones[i+1].Part_start == -1 {
+					tamano := tam_disk - puntero
+					tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+					Codigo_HTML += fmt.Sprintf(`
+					<TD BGCOLOR="White">
+						<FONT COLOR="black">Espacio libre </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+					`, strconv.Itoa(tamano))
+					break
+				} else {
+					tamano := int(particiones[i+1].Part_start) - puntero
+					tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+					Codigo_HTML += fmt.Sprintf(`
+					<TD BGCOLOR="#4B0082">
+						<FONT COLOR="white">Espacio libre </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+					`, strconv.Itoa(tamano))
+				}
+
+			} else if i == 3 {
+				fmt.Println("Particion 4 libre")
+				tamano := tam_disk - puntero
+				tamano = int((float64(tamano) / float64(tam_disk)) * 100)
+				Codigo_HTML += fmt.Sprintf(`
+					<TD BGCOLOR="White">
+						<FONT COLOR="black">Espacio libre </FONT> <BR/><FONT POINT-SIZE="10">Tamaño: %s  %% </FONT></TD>
+					`, strconv.Itoa(tamano))
+				break
+
+			}
+
+		}
+	}
+
+	Codigo_HTML += fmt.Sprintf(`
+			</TR>
+		</TABLE>`)
+
+	dotContent := fmt.Sprintf(`digraph G {
+	       rankdir=LR;
+	       node [shape=none];
+	       DiscoDuro [label=<%s>];
+	   }`, Codigo_HTML)
+	Rdot := path + ".dot"
+	// Guarda el código DOT en un archivo
+	err := ioutil.WriteFile(Rdot, []byte(dotContent), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+	R := path + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func ReporteTree(destino string, id string) {
+
+	Ap.Bloques = nil
+	Ap.Inodos = nil
+	Ap.Direccion = nil
+	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+	TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
+
+	fmt.Println("Generando reporte de tree")
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	graph.Attrs.Add("rankdir", "LR")
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := ""
+	inode := Structs.NewInodos()
+	PunteroInodos := SB.S_inode_start
+	PunteroBloques := SB.S_block_start
+	Carpeta := true
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+		PunteroInodos += int64(TamInodo) * int64(i)
+		file.Seek(PunteroInodos, 0)
+		data = lecturaB(file, TamInodo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return
+		}
+
+		if inode.I_size != -1 {
+			labelInode := fmt.Sprintf("Inodo%d", i)
+			Ap.Inodos = append(Ap.Inodos, labelInode)
+			Codigo_HTML = GenerateInodo(inode, i)
+			graph.AddNode("G", labelInode, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+			//Carpeta 0 Archivo 1
+			if inode.I_type == 1 {
+				Carpeta = false
+			} else if inode.I_type > 1 {
+				fmt.Println("No valido")
+			}
+			for j := 0; j < len(inode.I_block); j++ {
+				if j < 14 {
+					if inode.I_block[j] != -1 {
+						Apunta := int(inode.I_block[j])
+						if Carpeta == true {
+
+							bc := Structs.NewBloquesCarpetas()
+							file.Seek(PunteroBloques, 0)
+							data = lecturaB(file, TamBloqueCarpeta)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &bc)
+							PunteroBloques += int64(TamBloqueCarpeta)
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							labelBloque := fmt.Sprintf("Bloque%d", Apunta)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueCarpetas(bc, i, Apunta)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+						} else {
+							var fb Structs.BloquesArchivos
+							file.Seek(PunteroBloques, 0)
+							data = lecturaB(file, TamBloqueArchivo)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &fb)
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							PunteroBloques += int64(TamBloqueArchivo)
+							txt := ""
+							for i := 0; i < len(fb.B_content); i++ {
+								if fb.B_content[i] != 0 {
+									txt += string(fb.B_content[i])
+								}
+								if len(txt) == 64 {
+									break
+								}
+							}
+							labelBloque := fmt.Sprintf("Bloque%d", Apunta)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueArchivo(txt, i, Apunta)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+
+						}
+					}
+				}
+			}
+		} else {
+			break
+		}
+	}
+	graphParts := strings.Split(graph.String(), "}\n")
+	Direccionamiento := ""
+	for i := 0; i < len(Ap.Direccion); i++ {
+		Direccionamiento += "\t" + Ap.Direccion[i] + "\n"
+	}
+
+	graphRaw := graphParts[0] + Direccionamiento + "\n}"
+
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	errdot = cmd.Run()
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+}
+
+func BitMap_inodo(destino string, id string) {
+	fmt.Println("Generando reporte de inodos")
+	path := id[0:1]
+	path = path + ".dsk"
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	ceros := 0
+	unos := 0
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := fmt.Sprintf(`<<TABLE>
+	`)
+
+	control := 40
+	Codigo_HTML += fmt.Sprintf(`<TR style="background-color: #4B0082; color: white;">`)
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+		if control == 0 {
+			Codigo_HTML += fmt.Sprintf(`</TR>`)
+			Codigo_HTML += fmt.Sprintf(`<TR style="background-color: #4B0082; color: white;">`)
+			control = 40
+		}
+
+		file.Seek(SB.S_bm_inode_start+int64(i), 0)
+		data = lecturaB(file, 1)
+		buffer = bytes.NewBuffer(data)
+		var bm byte
+		err_ = binary.Read(buffer, binary.BigEndian, &bm)
+		if bm == 49 {
+			Codigo_HTML += fmt.Sprintf(`<TD BGCOLOR="black" STYLE="color: lightblue;"><FONT color="lightblue">1</FONT></TD>`)
+			unos += 1
+		} else if bm == 0 || bm == 48 {
+			Codigo_HTML += fmt.Sprintf(`<TD BGCOLOR="black" STYLE="color: lightblue;"><FONT color="lightblue">0</FONT></TD>`)
+			ceros += 1
+		}
+		control -= 1
+	}
+	Codigo_HTML += fmt.Sprintf(`
+	</TR>`)
+	Codigo_HTML += fmt.Sprintf(`
+	</TABLE>>`)
+
+	graph.AddNode("G", "BitMapInodo", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func BitMap_block(destino string, id string) {
+	fmt.Println("Generando reporte de inodos")
+	path := id[0:1]
+	path = path + ".dsk"
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+	ceros := 0
+	unos := 0
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := fmt.Sprintf(`<<TABLE>
+	`)
+
+	control := 40
+	Codigo_HTML += fmt.Sprintf(`<TR style="background-color: #4B0082; color: white;">`)
+	for i := 0; i < int(SB.S_blocks_count); i++ {
+		if control == 0 {
+			Codigo_HTML += fmt.Sprintf(`</TR>`)
+			Codigo_HTML += fmt.Sprintf(`<TR style="background-color: #4B0082; color: white;">`)
+			control = 40
+		}
+
+		file.Seek(SB.S_bm_block_start+int64(i), 0)
+		data = lecturaB(file, 1)
+		buffer = bytes.NewBuffer(data)
+		var bm byte
+		err_ = binary.Read(buffer, binary.BigEndian, &bm)
+		if bm == 49 {
+			Codigo_HTML += fmt.Sprintf(`<TD BGCOLOR="black" STYLE="color: lightblue;"><FONT color="lightblue">1</FONT></TD>`)
+			unos += 1
+		} else if bm == 0 || bm == 48 {
+			Codigo_HTML += fmt.Sprintf(`<TD BGCOLOR="black" STYLE="color: lightblue;"><FONT color="lightblue">0</FONT></TD>`)
+			ceros += 1
+		}
+		control -= 1
+	}
+	Codigo_HTML += fmt.Sprintf(`
+	</TR>`)
+	Codigo_HTML += fmt.Sprintf(`
+	</TABLE>>`)
+
+	graph.AddNode("G", "BitMapBlock", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+}
+
+func Report_Inode(destino string, id string) {
+	fmt.Println("Generando reporte de inodos")
+	path := id[0:1]
+	path = path + ".dsk"
+	Ap.Inodos = []string{}
+	Ap.Bloques = []string{}
+	Ap.Direccion = []string{}
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+
+	graph.Attrs.Add("rankdir", "LR")
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := ""
+	inode := Structs.NewInodos()
+
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+
+		file.Seek(SB.S_inode_start+(int64(unsafe.Sizeof(Structs.Inodos{}))*int64(i)), 0)
+		data = lecturaB(file, int(unsafe.Sizeof(Structs.Inodos{})))
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return
+		}
+		if inode.I_size != -1 {
+			labelInode := fmt.Sprintf("Inodo%d", i)
+			Ap.Inodos = append(Ap.Inodos, labelInode)
+			Codigo_HTML = GenerateInodo(inode, i)
+			graph.AddNode("G", labelInode, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+
+		} else {
+			break
+		}
+	}
+
+	Ap.Direccion = []string{}
+	for i := 0; i < len(Ap.Inodos); i++ {
+		if i+1 < len(Ap.Inodos) {
+			Ap.Direccion = append(Ap.Direccion, fmt.Sprintf("%s:i%d -> %s:i%d", Ap.Inodos[i], i, Ap.Inodos[i+1], i+1))
+		} else {
+			break
+		}
+	}
+
+	graphParts := strings.Split(graph.String(), "}\n")
+	Direccionamiento := ""
+	for i := 0; i < len(Ap.Direccion); i++ {
+		Direccionamiento += "\t" + Ap.Direccion[i] + "\n"
+	}
+
+	graphRaw := graphParts[0] + Direccionamiento + "\n}"
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	errdot = cmd.Run()
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+}
+
+func Report_Block(destino string, id string) {
+
+	Ap.Bloques = []string{}
+	Ap.Inodos = []string{}
+	Ap.Direccion = []string{}
+
+	fmt.Println("Generando reporte de inodos")
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	graph.Attrs.Add("rankdir", "LR")
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := ""
+	inode := Structs.NewInodos()
+
+	BloquesUsados := 0
+
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+
+		file.Seek(SB.S_inode_start+(int64(unsafe.Sizeof(Structs.Inodos{}))*int64(i)), 0)
+		data = lecturaB(file, int(unsafe.Sizeof(Structs.Inodos{})))
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return
+		}
+		if inode.I_size != -1 {
+			labelInode := fmt.Sprintf("Inodo%d", i)
+
+			for j := 0; j < len(inode.I_block); j++ {
+				if j < 14 {
+					if inode.I_block[j] != -1 {
+
+						if labelInode == "Inodo1" {
+							blocArch := int(inode.I_block[j]) - 1
+							var fb Structs.BloquesArchivos
+							file.Seek(SB.S_block_start+int64(unsafe.Sizeof(Structs.BloquesCarpetas{}))+int64(unsafe.Sizeof(Structs.BloquesArchivos{}))*int64(blocArch), 0)
+
+							data = lecturaB(file, int(unsafe.Sizeof(Structs.BloquesArchivos{})))
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &fb)
+
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							txt := ""
+							for i := 0; i < len(fb.B_content); i++ {
+								if fb.B_content[i] != 0 {
+									txt += string(fb.B_content[i])
+								}
+								if len(txt) == 64 {
+									break
+								}
+							}
+
+							labelBloque := fmt.Sprintf("Bloque%d", BloquesUsados)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueArchivo(txt, int(inode.I_gid), BloquesUsados)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+							BloquesUsados += 1
+
+						} else {
+
+							bc := Structs.NewBloquesCarpetas()
+							file.Seek(SB.S_block_start+(int64(unsafe.Sizeof(Structs.BloquesCarpetas{}))*int64(inode.I_block[j])), 0)
+							data = lecturaB(file, int(unsafe.Sizeof(Structs.BloquesCarpetas{})))
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &bc)
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							labelBloque := fmt.Sprintf("Bloque%d", BloquesUsados)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueCarpetas(bc, int(inode.I_gid), BloquesUsados)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+							BloquesUsados += 1
+						}
+
+					}
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	Ap.Direccion = []string{}
+	for i := 0; i < len(Ap.Bloques); i++ {
+		if i+1 < len(Ap.Bloques) {
+			Ap.Direccion = append(Ap.Direccion, fmt.Sprintf("%s:i%d -> %s:i%d", Ap.Bloques[i], i, Ap.Bloques[i+1], i+1))
+		} else {
+			break
+		}
+	}
+
+	graphParts := strings.Split(graph.String(), "}\n")
+	Direccionamiento := ""
+	for i := 0; i < len(Ap.Direccion); i++ {
+		Direccionamiento += "\t" + Ap.Direccion[i] + "\n"
+	}
+
+	graphRaw := graphParts[0] + Direccionamiento + "\n}"
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	errdot = cmd.Run()
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+}
+
+func GenerateInodo(inodo Structs.Inodos, numInodo int) string {
+	retorno := fmt.Sprintf(`
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i%d"><B>Inode %d</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>%d</TD></TR>
+            <TR><TD>I_gid</TD><TD>%d</TD></TR>
+            <TR><TD>I_size</TD><TD>%d</TD></TR>
+            <TR><TD>I_type</TD><TD>%d</TD></TR>
+            <TR><TD>I_perm</TD><TD>%d</TD></TR>
+        `, numInodo, numInodo, inodo.I_uid, inodo.I_gid, inodo.I_size, inodo.I_type, inodo.I_perm)
+
+	for i := 0; i < 16; i++ {
+
+		if inodo.I_block[i] != -1 {
+			port := fmt.Sprintf("p%d", i)
+			block := int(inodo.I_block[i])
+			inode := numInodo
+			direccion := fmt.Sprintf("Inodo%d:%s -> Bloque%d:b%d", inode, port, block, block)
+			Ap.Direccion = append(Ap.Direccion, direccion)
+		}
+
+		if i >= 13 {
+			retorno += fmt.Sprintf(`
+			<TR><TD>AI %d</TD><TD PORT="p%d">%d</TD></TR>
+            `, i, i, inodo.I_block[i])
+		} else {
+			retorno += fmt.Sprintf(`
+			<TR><TD >AD %d</TD><TD PORT="p%d">%d</TD></TR>
+            `, i, i, inodo.I_block[i])
+		}
+	}
+
+	retorno += "\n\t</TABLE>>"
+	return retorno
+}
+
+func GenerateBloqueCarpetas(bloque Structs.BloquesCarpetas, Inodo int, Bloque int) string {
+	retorno := fmt.Sprintf(`
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="orange">
+		<TR><TD COLSPAN="2" PORT="b%d"><B>Bloque %d</B></TD></TR>`, Bloque, Bloque)
+
+	// Un for que me imprima el contenido de la carpeta
+	for i := 0; i < 4; i++ {
+		if bloque.B_content[i].B_inodo != -1 {
+			if bloque.B_content[i].B_inodo != 0 {
+
+				if i < 3 {
+					port := fmt.Sprintf("p%d", i)
+					direccion := fmt.Sprintf(" %s:%s:e -> Inodo%d:i%d:w ", Ap.Bloques[Bloque], port, Inodo+1, Inodo+1)
+					Ap.Direccion = append(Ap.Direccion, direccion)
+				} else {
+					port := fmt.Sprintf("p%d", i)
+					direccion := fmt.Sprintf(" %s:%s -> Inodo%d:i%d ", Ap.Bloques[Bloque], port, Inodo+1, Inodo+1)
+					Ap.Direccion = append(Ap.Direccion, direccion)
+				}
+			}
+
+			nombre := ""
+			for a := 0; a < len(bloque.B_content[i].B_name); a++ {
+				if bloque.B_content[i].B_name[a] != 0 {
+					nombre += string(bloque.B_content[i].B_name[a])
+				}
+			}
+			retorno += fmt.Sprintf(`
+		<TR><TD>%s</TD><TD PORT="p%d">%d</TD></TR>`, nombre, i, bloque.B_content[i].B_inodo)
+		} else {
+			retorno += fmt.Sprintf(`
+		<TR><TD>--</TD><TD PORT="p%d">%d</TD></TR>`, i, bloque.B_content[i].B_inodo)
+		}
+	}
+	retorno += "\n\t</TABLE>>"
+	return retorno
+}
+
+func GenerateBloqueArchivo(contenido string, Inodo int, Bloque int) string {
+	retorno := fmt.Sprintf(`
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="green">
+		<TR><TD COLSPAN="2" PORT="b%d"><B>Bloque %d</B></TD></TR>
+		<TR><TD>%s</TD></TR>
+	</TABLE>>`, Bloque, Bloque, contenido)
+
+	return retorno
+}
+
+func lecturaB(file *os.File, number int) []byte {
+	bytes := make([]byte, number) //array de bytes
+
+	_, err := file.Read(bytes) // Leido -> bytes
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return bytes
+}
+
+
+//
+package Comandos
+
+import (
+	"Proyecto/Structs"
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+	"unsafe"
+)
+
+func ValidarDatosDir(context []string) {
+	path := ""
+	r := ""
+
+	for i := 0; i < len(context); i++ {
+		token := context[i]
+		tk := strings.Split(token, "=")
+		if Comparar(tk[0], "path") {
+			path = tk[1]
+		} else if Comparar(tk[0], "r") {
+			r = tk[0]
+		}
+	}
+	if path == "" {
+		Error("MKDir", "Se necesitan parametros obligatorio para crear un usuario.")
+		return
+	}
+	MKDir(path, r)
+
+}
+
+func MKDir(p string, r string) {
+
+	//Declaramos las variables
+	/*
+
+		blockCarpetasSize := int64(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+		blockArchivosSize := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+		inode := Structs.NewInodos()
+		bloqueCarpeta := Structs.NewBloquesCarpetas()
+		Content := Structs.NewContent()
+		NuevoInodo := Structs.NewInodos()
+	*/
+
+	var path string
+	partition := GetMount("MKUSR", Logged.Id, &path)
+	if string(partition.Part_status) == "0" {
+		Error("MKUSR", "No se encontró la partición montada con el id: "+Logged.Id)
+		return
+	}
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_RDWR, 0644)
+	if err != nil {
+		Error("MKGRP", "No se ha encontrado el disco.")
+		return
+	}
+	file.Seek(partition.Part_start, 0)
+	data := leerBytes(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Error("MKGRP", "Error al leer el archivo")
+		return
+	}
+
+	splitPath := strings.Split(p, "/")
+	splitPath = splitPath[1:] // Elimina la primera posición
+
+	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
+	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+	TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+
+	inode := Structs.NewInodos()
+	ContenidoBC := Structs.NewContent()
+	bc := Structs.NewBloquesCarpetas()
+	PunteroInodos := SB.S_inode_start
+	PunteroBloques := SB.S_block_start
+	Carpeta := true
+	CarpetaNueva := splitPath[len(splitPath)-1]
+	fecha := time.Now().String()
+	var CarpetaHijo int64
+	var CarpetaPadre int64
+
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+
+		file.Seek(PunteroInodos, 0)
+		data = leerBytes(file, TamInodo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Error("REP", "Error al leer el archivo")
+			return
+		}
+		if inode.I_size != -1 {
+			if inode.I_type == 1 {
+				Carpeta = false
+			} else if inode.I_type > 1 {
+				fmt.Println("No valido")
+			}
+			for j := 0; j < len(inode.I_block); j++ {
+				if j < 14 {
+					if inode.I_block[j] != -1 {
+						if Carpeta == true {
+							file.Seek(PunteroBloques, 0)
+							data = leerBytes(file, TamBloqueCarpeta)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &bc)
+
+							if err_ != nil {
+								Error("REP", "Error al leer el archivo")
+								return
+							}
+							//Verificacion de espacio
+							PosBC := PunteroBloques
+							PunteroBloques += int64(TamBloqueCarpeta)
+							for q := 0; q < len(bc.B_content); q++ {
+
+								if bc.B_content[q].B_inodo != -1 {
+									ContenidoBC = bc.B_content[q]
+									nombre := strings.Trim(string(ContenidoBC.B_name[:]), "\x00")
+
+									if nombre == "." {
+										fmt.Println("Hijo inodo", ContenidoBC.B_inodo)
+										CarpetaHijo = ContenidoBC.B_inodo
+									} else if nombre == ".." {
+										fmt.Println("Padre", ContenidoBC.B_inodo)
+										CarpetaPadre = ContenidoBC.B_inodo
+									} else if nombre != "" {
+										inodeN := Structs.NewInodos()
+										PosInodo := SB.S_inode_start + int64(TamInodo)*ContenidoBC.B_inodo
+										file.Seek(PosInodo, 0)
+										data = leerBytes(file, TamInodo)
+										buffer = bytes.NewBuffer(data)
+										err_ = binary.Read(buffer, binary.BigEndian, &inodeN)
+										if err_ != nil {
+											Error("REP", "Error al leer el archivo")
+											return
+										}
+
+										if inodeN.I_type == 0 {
+											PunteroBloques += int64(TamBloqueCarpeta)
+										} else if inodeN.I_type == 1 {
+											for k := 0; k < len(inodeN.I_block); k++ {
+												if inodeN.I_block[k] != -1 {
+													PunteroBloques += int64(TamBloqueArchivo)
+												}
+											}
+										}
+
+									}
+								} else {
+									if len(splitPath) == 1 {
+										fmt.Println("Creacion de la carpeta: ", CarpetaNueva)
+
+										inodetmp := Structs.NewInodos()
+										inodetmp.I_uid = int64(Logged.Uid)
+										inodetmp.I_gid = int64(Logged.Gid)
+										inodetmp.I_size = int64(TamBloqueCarpeta)
+
+										copy(inodetmp.I_atime[:], fecha)
+										copy(inodetmp.I_ctime[:], fecha)
+										copy(inodetmp.I_mtime[:], fecha)
+										inodetmp.I_type = 0
+										inodetmp.I_perm = 664
+										SB.S_first_blo++
+										inodetmp.I_block[0] = SB.S_first_blo
+										SB.S_firts_ino++
+										bc.B_content[q].B_inodo = SB.S_firts_ino
+										Sumatoria := SB.S_inode_start + (int64(TamInodo) * SB.S_firts_ino)
+										file.Seek(Sumatoria, 0)
+										var tmpI bytes.Buffer
+										binary.Write(&tmpI, binary.BigEndian, inodetmp)
+										EscribirBytes(file, tmpI.Bytes())
+
+										copy(bc.B_content[q].B_name[:], CarpetaNueva)
+
+										file.Seek(PosBC, 0)
+										var tmpBc bytes.Buffer
+										binary.Write(&tmpBc, binary.BigEndian, bc)
+										EscribirBytes(file, tmpBc.Bytes())
+
+										fb := Structs.NewBloquesCarpetas()
+										copy(fb.B_content[0].B_name[:], ".")
+										fb.B_content[0].B_inodo = CarpetaHijo
+										copy(fb.B_content[1].B_name[:], "..")
+										fb.B_content[1].B_inodo = CarpetaPadre
+										copy(fb.B_content[2].B_name[:], "--")
+										fb.B_content[2].B_inodo = -1
+										copy(fb.B_content[3].B_name[:], "--")
+										fb.B_content[3].B_inodo = -1
+
+										file.Seek(PunteroBloques, 0)
+										var bin5 bytes.Buffer
+										binary.Write(&bin5, binary.BigEndian, fb)
+										EscribirBytes(file, bin5.Bytes())
+
+										file.Seek(partition.Part_start, 0)
+										var binario333 bytes.Buffer
+										binary.Write(&binario333, binary.BigEndian, SB)
+										EscribirBytes(file, binario333.Bytes())
+
+										return
+
+									}
+
+								}
+
+							}
+							fmt.Println("No hay espacio en el bloque")
+							fmt.Println("Creando nuevo bloque de carpetas")
+							SB.S_first_blo++
+							fb := Structs.NewBloquesCarpetas()
+							copy(fb.B_content[0].B_name[:], "--")
+							fb.B_content[0].B_inodo = -1
+							copy(fb.B_content[1].B_name[:], "--")
+							fb.B_content[1].B_inodo = -1
+							copy(fb.B_content[2].B_name[:], "--")
+							fb.B_content[2].B_inodo = -1
+							copy(fb.B_content[3].B_name[:], "--")
+							fb.B_content[2].B_inodo = -1
+							file.Seek(PunteroBloques, 0)
+							var bin5 bytes.Buffer
+							binary.Write(&bin5, binary.BigEndian, fb)
+							EscribirBytes(file, bin5.Bytes())
+							inode.I_block[j+1] = SB.S_first_blo
+
+							file.Seek(PunteroInodos, 0)
+							var binario3333 bytes.Buffer
+							binary.Write(&binario3333, binary.BigEndian, inode)
+							EscribirBytes(file, binario3333.Bytes())
+
+						} else {
+							PunteroBloques += int64(TamBloqueArchivo)
+						}
+					}
+				}
+			}
+		} else {
+			break
+		}
+		PunteroInodos += int64(TamInodo)
+	}
+
+}
+
+//
+func ReporteTree(destino string, id string) {
+
+	Ap.Bloques = nil
+	Ap.Inodos = nil
+	Ap.Direccion = nil
+	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+	TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
+
+	fmt.Println("Generando reporte de tree")
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return
+	}
+
+	graphAst, _ := gographviz.ParseString(`digraph G {}`)
+	graph := gographviz.NewGraph()
+	graph.Attrs.Add("rankdir", "LR")
+	if err := gographviz.Analyse(graphAst, graph); err != nil {
+		panic(err)
+	}
+
+	Codigo_HTML := ""
+	inode := Structs.NewInodos()
+	PunteroInodos := SB.S_inode_start
+	PunteroBloques := SB.S_block_start
+	CantidadBloques := 0
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+		Carpeta := true
+
+		file.Seek(PunteroInodos, 0)
+		data = lecturaB(file, TamInodo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return
+		}
+
+		if inode.I_size != -1 {
+			labelInode := fmt.Sprintf("Inodo%d", i)
+			Ap.Inodos = append(Ap.Inodos, labelInode)
+			Codigo_HTML = GenerateInodo(inode, i)
+			graph.AddNode("G", labelInode, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+			//Carpeta 0 Archivo 1
+			if inode.I_type == 1 {
+				Carpeta = false
+			} else if inode.I_type > 1 {
+				fmt.Println("No valido")
+			}
+			for j := 0; j < len(inode.I_block); j++ {
+				if j < 14 {
+					if inode.I_block[j] != -1 {
+						Apunta := int(inode.I_block[j])
+						if Carpeta == true {
+
+							bc := Structs.NewBloquesCarpetas()
+							file.Seek(PunteroBloques, 0)
+							data = lecturaB(file, TamBloqueCarpeta)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &bc)
+							PunteroBloques += int64(TamBloqueCarpeta)
+
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							labelBloque := fmt.Sprintf("Bloque%d", Apunta)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueCarpetas(bc, i, CantidadBloques)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+							CantidadBloques += 1
+						} else {
+							var fb Structs.BloquesArchivos
+							file.Seek(PunteroBloques, 0)
+							data = lecturaB(file, TamBloqueArchivo)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &fb)
+							if err_ != nil {
+								Comandos.Error("REP", "Error al leer el archivo")
+								return
+							}
+							PunteroBloques += int64(TamBloqueArchivo)
+							txt := ""
+							for i := 0; i < len(fb.B_content); i++ {
+								if fb.B_content[i] != 0 {
+									txt += string(fb.B_content[i])
+								}
+								if len(txt) == 64 {
+									break
+								}
+							}
+							labelBloque := fmt.Sprintf("Bloque%d", Apunta)
+							Ap.Bloques = append(Ap.Bloques, labelBloque)
+							Codigo_HTML = GenerateBloqueArchivo(txt, i, Apunta)
+							graph.AddNode("G", labelBloque, map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
+
+						}
+					}
+				}
+			}
+		} else {
+			break
+		}
+		PunteroInodos += int64(TamInodo)
+	}
+	graphParts := strings.Split(graph.String(), "}\n")
+	Direccionamiento := ""
+	for i := 0; i < len(Ap.Direccion); i++ {
+		Direccionamiento += "\t" + Ap.Direccion[i] + "\n"
+	}
+
+	graphRaw := graphParts[0] + Direccionamiento + "\n}"
+
+	Rdot := destino + ".dot"
+	// Guarda el código DOT en un archivo
+	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+	R := destino + ".png"
+	// Genera el archivo PNG usando la herramienta dot
+	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
+	errdot = cmd.Run()
+	if errdot != nil {
+		fmt.Println(errdot)
+	}
+
+}
+
+package Comandos
+
+import (
+	"Proyecto/Structs"
+	"bytes"
+	"encoding/binary"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+	"unsafe"
+)
+
+func ValidarDatosDir(context []string) {
+	path := ""
+	r := ""
+
+	for i := 0; i < len(context); i++ {
+		token := context[i]
+		tk := strings.Split(token, "=")
+		if Comparar(tk[0], "path") {
+			path = tk[1]
+		} else if Comparar(tk[0], "r") {
+			r = tk[0]
+		}
+	}
+	if path == "" {
+		Error("MKDir", "Se necesitan parametros obligatorio para crear un usuario.")
+		return
+	}
+	MKDir(path, r)
+
+}
+
+func MKDir(p string, r string) {
+
+	//Declaramos las variables
+	/*
+
+		blockCarpetasSize := int64(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+		blockArchivosSize := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+		inode := Structs.NewInodos()
+		bloqueCarpeta := Structs.NewBloquesCarpetas()
+		Content := Structs.NewContent()
+		NuevoInodo := Structs.NewInodos()
+	*/
+
+	var path string
+	partition := GetMount("MKUSR", Logged.Id, &path)
+	if string(partition.Part_status) == "0" {
+		Error("MKUSR", "No se encontró la partición montada con el id: "+Logged.Id)
+		return
+	}
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_RDWR, 0644)
+	if err != nil {
+		Error("MKGRP", "No se ha encontrado el disco.")
+		return
+	}
+	file.Seek(partition.Part_start, 0)
+	data := leerBytes(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Error("MKGRP", "Error al leer el archivo")
+		return
+	}
+
+	/*
+
+
+		TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+		ContenidoBC := Structs.NewContent()
+
+		PunteroBloques := SB.S_block_start
+
+
+
+		var CarpetaHijo int64
+		var CarpetaPadre int64
+
+		MitadBA := (partcion.Part_size - SB.S_block_start) / 2
+		MitadBA = MitadBA + SB.S_block_start
+		PunteroBloquesArchivos := MitadBA
+
+	*/
+	fecha := time.Now().String()
+	splitPath := strings.Split(p, "/")
+	splitPath = splitPath[1:] // Elimina la primera posición
+	CarpetaNueva := splitPath[len(splitPath)-1]
+	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
+	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+	PunteroBloquesCarpetas := SB.S_block_start
+	PunteroInodos := SB.S_inode_start
+	inode := Structs.NewInodos()
+	Carpeta := true
+
+	PosicionPath := 0
+	inodeAux := Structs.NewInodos()
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+
+		file.Seek(PunteroInodos, 0)
+		data = leerBytes(file, TamInodo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Error("REP", "Error al leer el archivo")
+			return
+		}
+		if inode.I_size != -1 {
+			if inode.I_type == 1 {
+				Carpeta = false
+			} else if inode.I_type > 1 {
+				fmt.Println("No valido")
+			}
+			for j := 0; j < len(inode.I_block); j++ {
+				if inode.I_block[j] != -1 {
+					Apunta := int(inode.I_block[j])
+					if Carpeta == true {
+
+						bc := Structs.NewBloquesCarpetas()
+						PunteroBloquesCarpetas += int64(TamBloqueCarpeta) * int64(Apunta)
+						file.Seek(PunteroBloquesCarpetas, 0)
+						data = leerBytes(file, TamBloqueCarpeta)
+						buffer = bytes.NewBuffer(data)
+						err_ = binary.Read(buffer, binary.BigEndian, &bc)
+
+						for k := 0; k < len(bc.B_content); k++ {
+							Contenido := bc.B_content[k]
+							Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+							if Nombre == splitPath[PosicionPath] {
+								fmt.Println("Avanzando carpeta")
+								PosicionPath++
+								ApuntaInodo := int(Contenido.B_inodo)
+
+							}
+
+							if Contenido.B_inodo == -1 {
+								if CarpetaNueva == splitPath[PosicionPath] {
+									if PosicionPath == len(splitPath)-1 {
+										fmt.Println("Escritura")
+
+										inodetmp := Structs.NewInodos()
+										inodetmp.I_uid = int64(Logged.Uid)
+										inodetmp.I_gid = int64(Logged.Gid)
+										inodetmp.I_size = int64(TamBloqueCarpeta)
+
+										copy(inodetmp.I_atime[:], fecha)
+										copy(inodetmp.I_ctime[:], fecha)
+										copy(inodetmp.I_mtime[:], fecha)
+										inodetmp.I_type = 0
+										inodetmp.I_perm = 664
+										SB.S_first_blo++
+										inodetmp.I_block[0] = SB.S_first_blo
+										SB.S_firts_ino++
+										bc.B_content[k].B_inodo = SB.S_firts_ino
+										Sumatoria := SB.S_inode_start + (int64(TamInodo) * SB.S_firts_ino)
+										file.Seek(Sumatoria, 0)
+										var tmpI bytes.Buffer
+										binary.Write(&tmpI, binary.BigEndian, inodetmp)
+										EscribirBytes(file, tmpI.Bytes())
+
+										copy(bc.B_content[k].B_name[:], CarpetaNueva)
+
+										file.Seek(PunteroBloquesCarpetas, 0)
+										var tmpBc bytes.Buffer
+										binary.Write(&tmpBc, binary.BigEndian, bc)
+										EscribirBytes(file, tmpBc.Bytes())
+
+										fb := Structs.NewBloquesCarpetas()
+										copy(fb.B_content[0].B_name[:], ".")
+										fb.B_content[0].B_inodo = 0
+										copy(fb.B_content[1].B_name[:], "..")
+										fb.B_content[1].B_inodo = 0
+										copy(fb.B_content[2].B_name[:], "--")
+										fb.B_content[2].B_inodo = -1
+										copy(fb.B_content[3].B_name[:], "--")
+										fb.B_content[3].B_inodo = -1
+										variable := PunteroBloquesCarpetas + int64(TamBloqueCarpeta)
+
+										file.Seek(variable, 0)
+										var bin5 bytes.Buffer
+										binary.Write(&bin5, binary.BigEndian, fb)
+										EscribirBytes(file, bin5.Bytes())
+
+										file.Seek(partition.Part_start, 0)
+										var binario333 bytes.Buffer
+										binary.Write(&binario333, binary.BigEndian, SB)
+										EscribirBytes(file, binario333.Bytes())
+										return
+									}
+
+								}
+
+							}
+						}
+
+						if CarpetaNueva == splitPath[PosicionPath] {
+							if PosicionPath == len(splitPath)-1 {
+								fmt.Println("Escritura")
+								return
+							}
+							PosicionPath++
+						}
+
+					}
+				}
+			}
+		} else {
+			break
+		}
+		PunteroInodos += int64(TamInodo)
+	}
+
+}
+
+package Comandos
+
+import (
+	"Proyecto/Structs"
+	"bytes"
+	"encoding/binary"
+	"os"
+	"strings"
+	"unsafe"
+)
+
+func ValidarDatosDir(context []string) {
+	path := ""
+	r := false
+
+	for i := 0; i < len(context); i++ {
+		token := context[i]
+		tk := strings.Split(token, "=")
+		if Comparar(tk[0], "path") {
+			path = tk[1]
+		} else if Comparar(tk[0], "r") {
+			r = true
+		}
+	}
+	if path == "" {
+		Error("MKDir", "Se necesitan parametros obligatorio para crear un usuario.")
+		return
+	}
+	tmp := GetPath(path)
+	MKDir(tmp, r)
+
+}
+
+func MKDir(ruta []string, r bool) {
+	copia := ruta
+	spr := Structs.NewSuperBloque()
+	inode := Structs.NewInodos()
+	folder := Structs.NewBloquesCarpetas()
+
+	TamSuperBloque := int(unsafe.Sizeof(Structs.SuperBloque{}))
+	TamInode := int(unsafe.Sizeof(Structs.Inodos{}))
+
+	var path string
+	partition := GetMount("MKUSR", Logged.Id, &path)
+	if string(partition.Part_status) == "0" {
+		Error("MKUSR", "No se encontró la partición montada con el id: "+Logged.Id)
+		return
+	}
+	file, err := os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Error("MKDir", "No se ha encontrado el disco.")
+		return
+	}
+	file.Seek(partition.Part_start, 0)
+	data := leerBytes(file, TamSuperBloque)
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &spr)
+	if err_ != nil {
+		Error("MKDir", "Error al leer el super bloque.")
+		return
+	}
+	file.Seek(spr.S_inode_start, 0)
+	data = leerBytes(file, TamInode)
+	buffer = bytes.NewBuffer(data)
+	err_ = binary.Read(buffer, binary.BigEndian, &inode)
+	if err_ != nil {
+		Error("MKDir", "Error al leer el inodo.")
+		return
+	}
+
+	var newf string
+	if len(ruta) == 0 {
+		Error("MKDir", "No se puede crear un directorio sin nombre.")
+		return
+	}
+	var past int64
+	var bi int64
+	var bb int64
+	fnd := false
+	inodeTmp := Structs.NewInodos()
+	folderTmp := Struct.NewBloquesCarpetas()
+
+	newf = ruta[len(ruta)-1]
+	var father int64
+
+	var aux []string
+	for i := 0; i < len(ruta)-1; i++ {
+		aux = append(aux, ruta[i])
+	}
+	ruta = aux
+	var stack string
+	for v := 0; v < len(ruta)-1; v++ {
+		fnd = false
+		for i := 0; i < 16; i++ {
+			if i < 16 {
+				if inode.I_block[i] != -1 {
+					folder = Structs.NewBloquesCarpetas()
+					file.Seek(spr.S_block_start+inode.I_block[i]*int64(unsafe.Sizeof(folder)), 0)
+				}
+			}
+		}
+	}
+}
+
+
+if inode.I_size != -1 {
+
+				//Carpeta 0 Archivo 1
+				if inode.I_type == 1 {
+					Carpeta = false
+				} else if inode.I_type > 1 {
+					fmt.Println("No valido")
+				}
+
+				for j := 0; j < len(inode.I_block); j++ {
+					if inode.I_block[j] != -1 {
+						Apunta := int(inode.I_block[j])
+						if Carpeta == true {
+
+							bc := Structs.NewBloquesCarpetas()
+							PunteroBloquesCarpetas += int64(TamBloqueCarpeta) * int64(Apunta-BloquesArchivos)
+							file.Seek(PunteroBloquesCarpetas, 0)
+							data = leerBytes(file, TamBloqueCarpeta)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &bc)
+
+							if err_ != nil {
+								Error("MkDir", "Error al leer el archivo")
+								return
+							}
+
+							for k := 0; k < len(bc.B_content); k++ {
+								Contenido := bc.B_content[k]
+								//Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+								if Contenido.B_inodo == -1 {
+									if CarpetaNueva == ruta[PosRuta] {
+										inodetmp := Structs.NewInodos()
+										inodetmp.I_uid = int64(Logged.Uid)
+										inodetmp.I_gid = int64(Logged.Gid)
+										inodetmp.I_size = int64(TamBloqueCarpeta)
+
+										copy(inodetmp.I_atime[:], fecha)
+										copy(inodetmp.I_ctime[:], fecha)
+										copy(inodetmp.I_mtime[:], fecha)
+										inodetmp.I_type = 0
+										inodetmp.I_perm = 664
+										SB.S_first_blo++
+										inodetmp.I_block[0] = SB.S_first_blo
+										SB.S_firts_ino++
+										bc.B_content[k].B_inodo = SB.S_firts_ino
+										Sumatoria := SB.S_inode_start + (int64(TamInodo) * SB.S_firts_ino)
+										file.Seek(Sumatoria, 0)
+										var tmpI bytes.Buffer
+										binary.Write(&tmpI, binary.BigEndian, inodetmp)
+										EscribirBytes(file, tmpI.Bytes())
+
+										copy(bc.B_content[k].B_name[:], CarpetaNueva)
+
+										file.Seek(PunteroBloquesCarpetas, 0)
+										var tmpBc bytes.Buffer
+										binary.Write(&tmpBc, binary.BigEndian, bc)
+										EscribirBytes(file, tmpBc.Bytes())
+
+										fb := Structs.NewBloquesCarpetas()
+										copy(fb.B_content[0].B_name[:], ".")
+										fb.B_content[0].B_inodo = 0
+										copy(fb.B_content[1].B_name[:], "..")
+										fb.B_content[1].B_inodo = 0
+										copy(fb.B_content[2].B_name[:], "--")
+										fb.B_content[2].B_inodo = -1
+										copy(fb.B_content[3].B_name[:], "--")
+										fb.B_content[3].B_inodo = -1
+										variable := PunteroBloquesCarpetas + int64(TamBloqueCarpeta)
+
+										file.Seek(variable, 0)
+										var bin5 bytes.Buffer
+										binary.Write(&bin5, binary.BigEndian, fb)
+										EscribirBytes(file, bin5.Bytes())
+
+										file.Seek(partition.Part_start, 0)
+										var binario333 bytes.Buffer
+										binary.Write(&binario333, binary.BigEndian, SB)
+										EscribirBytes(file, binario333.Bytes())
+										return
+									}
+								} else {
+
+								}
+							}
+							fmt.Println("No hay espacio")
+							BloquesCarpetas += 1
+
+							fb := Structs.NewBloquesCarpetas()
+							copy(fb.B_content[0].B_name[:], "--")
+							fb.B_content[0].B_inodo = 0
+							copy(fb.B_content[1].B_name[:], "--")
+							fb.B_content[1].B_inodo = 0
+							copy(fb.B_content[2].B_name[:], "--")
+							fb.B_content[2].B_inodo = -1
+							copy(fb.B_content[3].B_name[:], "--")
+							fb.B_content[3].B_inodo = -1
+
+							variable := PunteroBloquesCarpetas + int64(TamBloqueCarpeta*BloquesCarpetas)
+
+							file.Seek(variable, 0)
+							var bin5 bytes.Buffer
+							binary.Write(&bin5, binary.BigEndian, fb)
+							EscribirBytes(file, bin5.Bytes())
+
+							SB.S_first_blo++
+
+							inode.I_block[j+1] = SB.S_first_blo
+							file.Seek(PunteroInodos, 0)
+							var tmpI bytes.Buffer
+							binary.Write(&tmpI, binary.BigEndian, inode)
+							EscribirBytes(file, tmpI.Bytes())
+
+						} else {
+							fmt.Println("Bloque archivo en inodo:", i)
+							var fb Structs.BloquesArchivos
+							PunteroBloquesArchivos += int64(TamBloqueArchivo) * int64(Apunta-BloquesCarpetas)
+							file.Seek(PunteroBloquesArchivos, 0)
+							data = leerBytes(file, TamBloqueArchivo)
+							buffer = bytes.NewBuffer(data)
+							err_ = binary.Read(buffer, binary.BigEndian, &fb)
+							if err_ != nil {
+								Error("MkDir", "Error al leer el archivo")
+								return
+							}
+
+							txt := ""
+							for i := 0; i < len(fb.B_content); i++ {
+								if fb.B_content[i] != 0 {
+									txt += string(fb.B_content[i])
+								}
+								if len(txt) == 64 {
+									break
+								}
+							}
+							BloquesArchivos += 1
+						}
+
+					}
+				}
+			} else {
+				break
+			}
+
+
+for {
+									bc := Structs.NewBloquesCarpetas()
+									file.Seek(PunteroBloquesCarpetas, 0)
+									data = leerBytes(file, TamBloqueCarpeta)
+									buffer = bytes.NewBuffer(data)
+									err_ = binary.Read(buffer, binary.BigEndian, &bc)
+									if err_ != nil {
+										Error("MkDir", "Error al leer el archivo")
+										return
+									}
+									Contenido := bc.B_content[3]
+									Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+									fmt.Println("Nombre: ", Nombre)
+									// Primera condición
+									if strings.ContainsRune(Nombre, '�') {
+										break
+									} else {
+										CantidadBloques++
+										PunteroBloquesCarpetas += int64(TamBloqueCarpeta)
+									}
+								}
+
+
+
+for i := 0; i < int(SB.S_inodes_count); i++ {
+			Carpeta := true
+
+			file.Seek(PunteroInodos, 0)
+			data = leerBytes(file, TamInodo)
+			buffer = bytes.NewBuffer(data)
+			err_ = binary.Read(buffer, binary.BigEndian, &inode)
+			if err_ != nil {
+				Error("MkDir", "Error al leer el archivo")
+				return
+			}
+
+			if inode.I_size != -1 {
+
+				//Carpeta 0 Archivo 1
+				if inode.I_type == 1 {
+					Carpeta = false
+				} else if inode.I_type > 1 {
+					fmt.Println("No valido")
+				}
+
+				for j := 0; j < len(inode.I_block); j++ {
+					if inode.I_block[j] != -1 {
+						//Apunta := int(inode.I_block[j])
+						if Carpeta == true {
+
+							for {
+
+								bc := Structs.NewBloquesCarpetas()
+								file.Seek(PunteroBloquesCarpetas, 0)
+								data = leerBytes(file, TamBloqueCarpeta)
+								buffer = bytes.NewBuffer(data)
+								err_ = binary.Read(buffer, binary.BigEndian, &bc)
+								if err_ != nil {
+									Error("MkDir", "Error al leer el archivo")
+									return
+								}
+								Contenido := bc.B_content[3]
+								Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+								fmt.Println("Nombre: ", Nombre)
+								// Primera condición
+								if strings.ContainsRune(Nombre, '�') {
+									break
+								} else {
+									for k := 0; k < len(bc.B_content); k++ {
+										Contenido := bc.B_content[k]
+										//Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+										if Contenido.B_inodo == -1 {
+											inodetmp := Structs.NewInodos()
+											inodetmp.I_uid = int64(Logged.Uid)
+											inodetmp.I_gid = int64(Logged.Gid)
+											inodetmp.I_size = int64(TamBloqueCarpeta)
+
+											copy(inodetmp.I_atime[:], fecha)
+											copy(inodetmp.I_ctime[:], fecha)
+											copy(inodetmp.I_mtime[:], fecha)
+											inodetmp.I_type = 0
+											inodetmp.I_perm = 664
+											SB.S_first_blo++
+											inodetmp.I_block[0] = SB.S_first_blo
+											SB.S_firts_ino++
+											bc.B_content[k].B_inodo = SB.S_firts_ino
+											Sumatoria := SB.S_inode_start + (int64(TamInodo) * SB.S_firts_ino)
+											file.Seek(Sumatoria, 0)
+											var tmpI bytes.Buffer
+											binary.Write(&tmpI, binary.BigEndian, inodetmp)
+											EscribirBytes(file, tmpI.Bytes())
+
+											copy(bc.B_content[k].B_name[:], CarpetaNueva)
+
+											file.Seek(PunteroBloquesCarpetas, 0)
+											var tmpBc bytes.Buffer
+											binary.Write(&tmpBc, binary.BigEndian, bc)
+											EscribirBytes(file, tmpBc.Bytes())
+
+											fb := Structs.NewBloquesCarpetas()
+											copy(fb.B_content[0].B_name[:], ".")
+											fb.B_content[0].B_inodo = 0
+											copy(fb.B_content[1].B_name[:], "..")
+											fb.B_content[1].B_inodo = 0
+											copy(fb.B_content[2].B_name[:], "--")
+											fb.B_content[2].B_inodo = -1
+											copy(fb.B_content[3].B_name[:], "--")
+											fb.B_content[3].B_inodo = -1
+											variable := PunteroBloquesCarpetas + int64(TamBloqueCarpeta)
+
+											file.Seek(variable, 0)
+											var bin5 bytes.Buffer
+											binary.Write(&bin5, binary.BigEndian, fb)
+											EscribirBytes(file, bin5.Bytes())
+
+											file.Seek(partition.Part_start, 0)
+											var binario333 bytes.Buffer
+											binary.Write(&binario333, binary.BigEndian, SB)
+											EscribirBytes(file, binario333.Bytes())
+											return
+
+										}
+
+									}
+									for {
+										bc := Structs.NewBloquesCarpetas()
+										file.Seek(PunteroBloquesCarpetas, 0)
+										data = leerBytes(file, TamBloqueCarpeta)
+										buffer = bytes.NewBuffer(data)
+										err_ = binary.Read(buffer, binary.BigEndian, &bc)
+										if err_ != nil {
+											Error("MkDir", "Error al leer el archivo")
+											return
+										}
+										Contenido := bc.B_content[1]
+										Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+										// Primera condición
+										if strings.ContainsRune(Nombre, '�') {
+											fmt.Println("No hay espacio")
+											fb := Structs.NewBloquesCarpetas()
+											copy(fb.B_content[0].B_name[:], "--")
+											fb.B_content[0].B_inodo = -1
+											copy(fb.B_content[1].B_name[:], "--")
+											fb.B_content[1].B_inodo = -1
+											copy(fb.B_content[2].B_name[:], "--")
+											fb.B_content[2].B_inodo = -1
+											copy(fb.B_content[3].B_name[:], "--")
+											fb.B_content[3].B_inodo = -1
+											variable := PunteroBloquesCarpetas
+											file.Seek(variable, 0)
+											var bin5 bytes.Buffer
+											binary.Write(&bin5, binary.BigEndian, fb)
+											EscribirBytes(file, bin5.Bytes())
+											SB.S_first_blo++
+											inode.I_block[j+1] = SB.S_first_blo
+											file.Seek(PunteroInodos, 0)
+											var tmpI bytes.Buffer
+											binary.Write(&tmpI, binary.BigEndian, inode)
+											EscribirBytes(file, tmpI.Bytes())
+											break
+										} else {
+											PunteroBloquesCarpetas += int64(TamBloqueCarpeta)
+										}
+
+									}
+
+								}
+
+							}
+						}
+
+					}
+				}
+			} else {
+				break
+			}
+			PunteroInodos += int64(TamInodo)
+		}
