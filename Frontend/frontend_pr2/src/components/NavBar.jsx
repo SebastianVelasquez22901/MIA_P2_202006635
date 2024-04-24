@@ -1,6 +1,6 @@
 import React from 'react';
 
-const NavBar = ({ onNavClick }) => {
+const NavBar = ({ onNavClick, isLoggedIn, onLogout }) => {
     return (
         <nav className="navBar">
             <ul className="navList">
@@ -13,6 +13,13 @@ const NavBar = ({ onNavClick }) => {
                 <li className="navItem">
                     <a href="#" className="navLink" onClick={() => onNavClick('Pantalla 3')}>Pantalla 3</a>
                 </li>
+                {isLoggedIn && (
+                  <li className="navItem">
+                    <button style={{backgroundColor: 'red'}} onClick={onLogout}>
+                      Salir sesión
+                    </button>
+                  </li>
+                )}
             </ul>
         </nav>
     );

@@ -39,6 +39,12 @@ type Response struct {
 	Number string `json:"number"`
 }
 
+type LoginData struct {
+	ID   string `json:"id"`
+	User string `json:"user"`
+	Pass string `json:"pass"`
+}
+
 func allowCORS(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -57,9 +63,39 @@ func main() {
 	router.HandleFunc("/analizador", analizador).Methods("POST")
 	router.HandleFunc("/verficadorDiscos", verificadorDiscos).Methods("GET")
 	router.HandleFunc("/getParticiones", getParticiones).Methods("POST")
+	router.HandleFunc("/login", Login).Methods("POST")
+	router.HandleFunc("/logout", CS).Methods("GET")
+
 	handler := allowCORS(router)
 	fmt.Println("Se esta escuchando en el puerto 3000")
 	log.Fatal(http.ListenAndServe(":3000", handler))
+}
+func CS(w http.ResponseWriter, r *http.Request) {
+
+	logued = Comandos.CerrarSesion()
+	if !logued {
+		w.WriteHeader(http.StatusOK) // Devuelve el código de estado 200
+	} else {
+		w.WriteHeader(http.StatusBadRequest) // Devuelve el código de estado 404
+
+	}
+
+}
+
+func Login(w http.ResponseWriter, r *http.Request) {
+	var datos LoginData
+	err := json.NewDecoder(r.Body).Decode(&datos)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	logued = Comandos.Login(datos.User, datos.Pass, datos.ID)
+	if logued {
+		w.WriteHeader(http.StatusOK) // Devuelve el código de estado 200
+	} else {
+		w.WriteHeader(http.StatusNotFound) // Devuelve el código de estado 404
+	}
+
 }
 
 func getParticiones(w http.ResponseWriter, r *http.Request) {

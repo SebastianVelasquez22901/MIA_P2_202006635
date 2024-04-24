@@ -1,1 +1,1 @@
-fdisk -size=2 -driveletter=A -name=Prueba -unit=K
+mount -driveletter=A -name=Part1
