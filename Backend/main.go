@@ -22,8 +22,17 @@ type DatosEntrada struct {
 	Comandos []string `json:"comandos"`
 }
 
-func inicial(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "<h1>¡Hola Desde el servidor!</h1>")
+type Disco struct {
+	NombreDisco string `json:"NombreDisco"`
+}
+
+type ParticionInfo struct {
+	Status string `json:"status"`
+	Type   string `json:"type"`
+	Fit    string `json:"fit"`
+	Start  int    `json:"start"`
+	Size   int    `json:"size"`
+	Name   string `json:"name"`
 }
 
 type Response struct {
@@ -34,7 +43,7 @@ func allowCORS(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "*") // Permitir todos los encabezados
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -45,12 +54,56 @@ func allowCORS(handler http.Handler) http.Handler {
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/", inicial).Methods("GET")
 	router.HandleFunc("/analizador", analizador).Methods("POST")
 	router.HandleFunc("/verficadorDiscos", verificadorDiscos).Methods("GET")
+	router.HandleFunc("/getParticiones", getParticiones).Methods("POST")
 	handler := allowCORS(router)
 	fmt.Println("Se esta escuchando en el puerto 3000")
 	log.Fatal(http.ListenAndServe(":3000", handler))
+}
+
+func getParticiones(w http.ResponseWriter, r *http.Request) {
+	var disco Disco
+
+	// Decodificar el cuerpo de la solicitud en la estructura Disco
+	err := json.NewDecoder(r.Body).Decode(&disco)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Ahora puedes usar disco.NombreDisco en tu función
+	mbr := Comandos.LeerDisco(disco.NombreDisco)
+	particiones := Comandos.GetParticiones(*mbr)
+	var particionesInfo []ParticionInfo
+
+	for i := 0; i < len(particiones); i++ {
+		particion := particiones[i]
+		nombre := ""
+		if particion.Part_status == "1"[0] {
+
+			for j := 0; j < len(particion.Part_name); j++ {
+				if particion.Part_name[j] != 0 {
+					nombre += string(particion.Part_name[j])
+				}
+			}
+		}
+		particionInfo := ParticionInfo{
+			Status: string(particion.Part_status),
+			Type:   string(particion.Part_type),
+			Fit:    string(particion.Part_fit),
+			Start:  int(particion.Part_start),
+			Size:   int(particion.Part_size),
+			Name:   nombre,
+		}
+		particionesInfo = append(particionesInfo, particionInfo)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(particionesInfo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func verificadorDiscos(w http.ResponseWriter, r *http.Request) {

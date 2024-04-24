@@ -1,7 +1,7 @@
 rmdisk -driveletter=A
 mkdisk -size=250 -unit=K
 fdisk -size=45 -driveletter=A -name=Particion1 -unit=K
-fdisk -size=2 -driveletter=A -name=Particion2 -unit=K
+fdisk -size=2 -driveletter=A -name=Prueba -unit=K
 fdisk -size=4 -driveletter=A -name=Particion3 -unit=K
 fdisk -size=2 -driveletter=A -name=Particion4 -unit=K
 fdisk -size=2 -driveletter=B -name=Particion5 -unit=K

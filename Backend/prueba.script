@@ -1,1 +1,1 @@
-mkdisk -size=250 -unit=K
+fdisk -size=2 -driveletter=A -name=Prueba -unit=K
