@@ -61,7 +61,20 @@ function App() {
     );
   }
 
-  const Login = () => {
+
+  const CarpetasArchivos = () => {
+    axios.get('http://localhost:3000/carpetaArchivos').then(function (response) {
+      
+      console.log(response.data); 
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
+  }
+
+
+  const Login = (event) => {
+    event.preventDefault();
     const idValue = DiscoSeleccionado[0] + ParticionSeleccionada + '65';
     
     axios.post('http://localhost:3000/login', {
@@ -91,6 +104,7 @@ function App() {
               text: "Tu sesión ha sido iniciada correctamente",
               icon: "success"
             });
+            CarpetasArchivos();
             setSelectedOption('Pantalla 5');
           }
         });
@@ -110,7 +124,6 @@ function App() {
     axios.get('http://localhost:3000/verficadorDiscos')
       .then(function (response) {
         setDiscosActivos(parseInt(response.data.number));
-        console.log(response.data.number); // { "number": "3" }
       })
       .catch(function (error) {
         console.log(error);
@@ -120,7 +133,6 @@ function App() {
   const handleSendClick = () => {
     setChatLines([...chatLines, inputText]);
     
-    console.log('Enviando comando: ', inputText);
     // Hacer una solicitud POST a tu backend
     axios.post('http://localhost:3000/analizador', {
       comandos: [inputText]
@@ -289,7 +301,7 @@ function App() {
             }}
             onChange={e => setPassValue(e.target.value)}
             />
-      <button className="neon-button" onClick={()=>Login()}>
+      <button className="neon-button" onClick={(event)=>Login(event)}>
         <span></span>
         <span></span>
         <span></span>
@@ -310,7 +322,7 @@ function App() {
                   >
                     <img src={txt} alt="Txt" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
                     <br />
-                    Txt
+                    users.txt
                   </button>
                 </div>
               </div>

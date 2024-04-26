@@ -23,6 +23,20 @@ type Apuntadores struct {
 	Direccion []string
 }
 
+type CarpetaFront struct {
+	NombreCarpeta string
+}
+
+type ArchivoFront struct {
+	NombreArchivo string
+	Contenido     string
+}
+
+type ContenidoFront struct {
+	Carpetas []CarpetaFront
+	Archivos []ArchivoFront
+}
+
 var Ap = Apuntadores{}
 
 func ValidarDatosReporte(context []string) {
@@ -1330,4 +1344,196 @@ func lecturaB(file *os.File, number int) []byte {
 	}
 
 	return bytes
+}
+
+func InterfazCarpetaArchivo(id string) ContenidoFront {
+
+	Ap.Inodos = []string{}
+	Ap.Bloques = []string{}
+	Ap.Direccion = []string{}
+	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
+	TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
+	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
+	contenido := ContenidoFront{
+		Carpetas: []CarpetaFront{},
+		Archivos: []ArchivoFront{},
+	}
+
+	path := id[0:1]
+	path = path + ".dsk"
+
+	partcion := Comandos.GetMount("REP", id, &path)
+	SB := Structs.NewSuperBloque()
+	file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err = os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Comandos.Error("REP", "No se ha encontrado el disco.")
+		return contenido
+	}
+
+	file.Seek(partcion.Part_start, 0)
+	data := lecturaB(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &SB)
+	if err_ != nil {
+		Comandos.Error("REP", "Error al leer el archivo")
+		return contenido
+	}
+
+	MitadBA := (partcion.Part_size - SB.S_block_start) / 2
+	MitadBA = MitadBA + SB.S_block_start
+
+	inode := Structs.NewInodos()
+	PunteroInodos := SB.S_inode_start
+	PunteroBloquesCarpetas := SB.S_block_start
+	PunteroBloquesArchivos := MitadBA
+	//CantidadBloques := 0
+
+	CantidadBloquesCarpetas := 0
+	CantidadBloquesArchivos := 0
+
+	for {
+		bc := Structs.NewBloquesCarpetas()
+		file.Seek(PunteroBloquesCarpetas, 0)
+		data = lecturaB(file, TamBloqueCarpeta)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &bc)
+		if err_ != nil {
+			Comandos.Error("MkDir", "Error al leer el archivo")
+			return contenido
+		}
+		Contenido := bc.B_content[1]
+		Nombre := strings.Trim(string(Contenido.B_name[:]), "\x00")
+		// Primera condición
+		if strings.ContainsRune(Nombre, '�') {
+			break
+		} else {
+			CantidadBloquesCarpetas++
+			PunteroBloquesCarpetas += int64(TamBloqueCarpeta)
+		}
+
+	}
+
+	PunteroBloquesCarpetas = SB.S_block_start
+
+	for {
+		var fb Structs.BloquesArchivos
+		file.Seek(PunteroBloquesArchivos, 0)
+		data = lecturaB(file, TamBloqueArchivo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &fb)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return contenido
+		}
+		Contenido := fb.B_content[0]
+		if Contenido != 255 {
+			CantidadBloquesArchivos++
+		} else {
+			break
+		}
+		PunteroBloquesArchivos += int64(TamBloqueArchivo)
+	}
+
+	BCN := 0
+	BA := 0
+
+	for i := 0; i < int(SB.S_inodes_count); i++ {
+		Carpeta := true
+
+		file.Seek(PunteroInodos, 0)
+		data = lecturaB(file, TamInodo)
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &inode)
+		if err_ != nil {
+			Comandos.Error("REP", "Error al leer el archivo")
+			return contenido
+		}
+
+		if inode.I_size != -1 {
+			labelInode := fmt.Sprintf("Inodo%d", i)
+			Ap.Inodos = append(Ap.Inodos, labelInode)
+			//Carpeta 0 Archivo 1
+			if inode.I_type == 1 {
+				Carpeta = false
+			} else if inode.I_type > 1 {
+				fmt.Println("No valido")
+			}
+
+			for j := 0; j < len(inode.I_block); j++ {
+				if inode.I_block[j] != -1 {
+					Apunta := int(inode.I_block[j])
+					if Carpeta == true {
+
+						bc := Structs.NewBloquesCarpetas()
+
+						if Apunta == 0 {
+							PunteroBloquesCarpetas = SB.S_block_start + (int64(Apunta) * int64(TamBloqueCarpeta))
+						} else {
+							resut := int64(Apunta - 2)
+							PunteroBloquesCarpetas = SB.S_block_start + resut*int64(TamBloqueCarpeta)
+						}
+
+						file.Seek(PunteroBloquesCarpetas, 0)
+						data = lecturaB(file, TamBloqueCarpeta)
+						buffer = bytes.NewBuffer(data)
+						err_ = binary.Read(buffer, binary.BigEndian, &bc)
+						if err_ != nil {
+
+							Comandos.Error("REP", "Error al leer el archivo")
+							return contenido
+						}
+						nombre := ""
+						for a := 0; a < len(bc.B_content[i].B_name); a++ {
+							if bc.B_content[i].B_name[a] != 0 {
+								nombre += string(bc.B_content[i].B_name[a])
+							}
+						}
+						nuevaCarpeta := CarpetaFront{
+							NombreCarpeta: nombre,
+						}
+						contenido.Carpetas = append(contenido.Carpetas, nuevaCarpeta)
+
+						labelBloque := fmt.Sprintf("Bloque%d", Apunta)
+						Ap.Bloques = append(Ap.Bloques, labelBloque)
+						BCN++
+
+					} else {
+						if Apunta < 3 {
+							PunteroBloquesArchivos = MitadBA + (int64(Apunta-1) * int64(TamBloqueArchivo))
+						} else {
+							PunteroBloquesArchivos = MitadBA + (int64(Apunta-CantidadBloquesCarpetas) * int64(TamBloqueArchivo))
+						}
+
+						var fb Structs.BloquesArchivos
+						file.Seek(PunteroBloquesArchivos, 0)
+						data = lecturaB(file, TamBloqueArchivo)
+						buffer = bytes.NewBuffer(data)
+						err_ = binary.Read(buffer, binary.BigEndian, &fb)
+						if err_ != nil {
+							Comandos.Error("REP", "Error al leer el archivo")
+							return contenido
+						}
+
+						txt := ""
+						for i := 0; i < len(fb.B_content); i++ {
+							if fb.B_content[i] != 0 {
+								txt += string(fb.B_content[i])
+							}
+							if len(txt) == 64 {
+								break
+							}
+						}
+
+						BA++
+					}
+
+				}
+			}
+		} else {
+			break
+		}
+		PunteroInodos += int64(TamInodo)
+	}
+	return contenido
 }

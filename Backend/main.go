@@ -66,10 +66,26 @@ func main() {
 	router.HandleFunc("/login", Login).Methods("POST")
 	router.HandleFunc("/logout", CS).Methods("GET")
 	router.HandleFunc("/usersTxt", UsersTxt).Methods("GET")
+	router.HandleFunc("/carpetaArchivos", CarpetasArchivos).Methods("GET")
 
 	handler := allowCORS(router)
 	fmt.Println("Se esta escuchando en el puerto 3000")
 	log.Fatal(http.ListenAndServe(":3000", handler))
+}
+
+func CarpetasArchivos(w http.ResponseWriter, r *http.Request) {
+	var contenido Reportes.ContenidoFront
+	contenido = Reportes.InterfazCarpetaArchivo(Comandos.Logged.Id)
+
+	// Establecer el tipo de contenido de la respuesta
+	w.Header().Set("Content-Type", "application/json")
+
+	// Codificar el objeto JSON y enviarlo en la respuesta
+	err := json.NewEncoder(w).Encode(contenido)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 func CS(w http.ResponseWriter, r *http.Request) {
 

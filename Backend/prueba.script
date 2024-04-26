@@ -1,1 +1,1 @@
-mount -driveletter=A -name=Part1
+mount -driveletter=A -name=ParticionEXT3

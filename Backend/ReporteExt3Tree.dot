@@ -1,0 +1,273 @@
+digraph G {
+	rankdir=LR;
+	Bloque0 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="orange">
+		<TR><TD COLSPAN="2" PORT="b0"><B>Bloque 0</B></TD></TR>
+		<TR><TD>.</TD><TD PORT="p0">0</TD></TR>
+		<TR><TD>..</TD><TD PORT="p1">0</TD></TR>
+		<TR><TD>users.txt</TD><TD PORT="p2">1</TD></TR>
+		<TR><TD>Z1</TD><TD PORT="p3">2</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Bloque1 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="green">
+		<TR><TD COLSPAN="2" PORT="b1"><B>Bloque 1</B></TD></TR>
+		<TR><TD>1,G,root
+1,U,root,root,123
+2,G,usuarios
+2,U,usuarios,user3,ext3
+</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Bloque2 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="orange">
+		<TR><TD COLSPAN="2" PORT="b2"><B>Bloque 2</B></TD></TR>
+		<TR><TD>.</TD><TD PORT="p0">0</TD></TR>
+		<TR><TD>..</TD><TD PORT="p1">0</TD></TR>
+		<TR><TD>users.txt</TD><TD PORT="p2">1</TD></TR>
+		<TR><TD>Z1</TD><TD PORT="p3">2</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Bloque3 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="orange">
+		<TR><TD COLSPAN="2" PORT="b3"><B>Bloque 3</B></TD></TR>
+		<TR><TD>.</TD><TD PORT="p0">0</TD></TR>
+		<TR><TD>..</TD><TD PORT="p1">0</TD></TR>
+		<TR><TD>ext3.txt</TD><TD PORT="p2">4</TD></TR>
+		<TR><TD>--</TD><TD PORT="p3">-1</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Bloque4 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="orange">
+		<TR><TD COLSPAN="2" PORT="b4"><B>Bloque 4</B></TD></TR>
+		<TR><TD>Z2</TD><TD PORT="p0">3</TD></TR>
+		<TR><TD>--</TD><TD PORT="p1">-1</TD></TR>
+		<TR><TD>--</TD><TD PORT="p2">-1</TD></TR>
+		<TR><TD>--</TD><TD PORT="p3">-1</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Bloque5 [ label=
+	<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="green">
+		<TR><TD COLSPAN="2" PORT="b5"><B>Bloque 5</B></TD></TR>
+		<TR><TD>1234567890123456</TD></TR>
+	</TABLE>>, shape=plaintext ];
+	Inodo0 [ label=
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i0"><B>Inode 0</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>0</TD></TR>
+            <TR><TD>I_gid</TD><TD>0</TD></TR>
+            <TR><TD>I_size</TD><TD>424</TD></TR>
+            <TR><TD>I_type</TD><TD>0</TD></TR>
+            <TR><TD>I_perm</TD><TD>664</TD></TR>
+        
+			<TR><TD >AD 0</TD><TD PORT="p0">0</TD></TR>
+            
+			<TR><TD >AD 1</TD><TD PORT="p1">3</TD></TR>
+            
+			<TR><TD >AD 2</TD><TD PORT="p2">-1</TD></TR>
+            
+			<TR><TD >AD 3</TD><TD PORT="p3">-1</TD></TR>
+            
+			<TR><TD >AD 4</TD><TD PORT="p4">-1</TD></TR>
+            
+			<TR><TD >AD 5</TD><TD PORT="p5">-1</TD></TR>
+            
+			<TR><TD >AD 6</TD><TD PORT="p6">-1</TD></TR>
+            
+			<TR><TD >AD 7</TD><TD PORT="p7">-1</TD></TR>
+            
+			<TR><TD >AD 8</TD><TD PORT="p8">-1</TD></TR>
+            
+			<TR><TD >AD 9</TD><TD PORT="p9">-1</TD></TR>
+            
+			<TR><TD >AD 10</TD><TD PORT="p10">-1</TD></TR>
+            
+			<TR><TD >AD 11</TD><TD PORT="p11">-1</TD></TR>
+            
+			<TR><TD >AD 12</TD><TD PORT="p12">-1</TD></TR>
+            
+			<TR><TD>AI 13</TD><TD PORT="p13">-1</TD></TR>
+            
+			<TR><TD>AI 14</TD><TD PORT="p14">-1</TD></TR>
+            
+			<TR><TD>AI 15</TD><TD PORT="p15">-1</TD></TR>
+            
+	</TABLE>>, shape=plaintext ];
+	Inodo1 [ label=
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i1"><B>Inode 1</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>0</TD></TR>
+            <TR><TD>I_gid</TD><TD>0</TD></TR>
+            <TR><TD>I_size</TD><TD>112</TD></TR>
+            <TR><TD>I_type</TD><TD>1</TD></TR>
+            <TR><TD>I_perm</TD><TD>664</TD></TR>
+        
+			<TR><TD >AD 0</TD><TD PORT="p0">1</TD></TR>
+            
+			<TR><TD >AD 1</TD><TD PORT="p1">-1</TD></TR>
+            
+			<TR><TD >AD 2</TD><TD PORT="p2">-1</TD></TR>
+            
+			<TR><TD >AD 3</TD><TD PORT="p3">-1</TD></TR>
+            
+			<TR><TD >AD 4</TD><TD PORT="p4">-1</TD></TR>
+            
+			<TR><TD >AD 5</TD><TD PORT="p5">-1</TD></TR>
+            
+			<TR><TD >AD 6</TD><TD PORT="p6">-1</TD></TR>
+            
+			<TR><TD >AD 7</TD><TD PORT="p7">-1</TD></TR>
+            
+			<TR><TD >AD 8</TD><TD PORT="p8">-1</TD></TR>
+            
+			<TR><TD >AD 9</TD><TD PORT="p9">-1</TD></TR>
+            
+			<TR><TD >AD 10</TD><TD PORT="p10">-1</TD></TR>
+            
+			<TR><TD >AD 11</TD><TD PORT="p11">-1</TD></TR>
+            
+			<TR><TD >AD 12</TD><TD PORT="p12">-1</TD></TR>
+            
+			<TR><TD>AI 13</TD><TD PORT="p13">-1</TD></TR>
+            
+			<TR><TD>AI 14</TD><TD PORT="p14">-1</TD></TR>
+            
+			<TR><TD>AI 15</TD><TD PORT="p15">-1</TD></TR>
+            
+	</TABLE>>, shape=plaintext ];
+	Inodo2 [ label=
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i2"><B>Inode 2</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>1</TD></TR>
+            <TR><TD>I_gid</TD><TD>1</TD></TR>
+            <TR><TD>I_size</TD><TD>96</TD></TR>
+            <TR><TD>I_type</TD><TD>0</TD></TR>
+            <TR><TD>I_perm</TD><TD>664</TD></TR>
+        
+			<TR><TD >AD 0</TD><TD PORT="p0">2</TD></TR>
+            
+			<TR><TD >AD 1</TD><TD PORT="p1">-1</TD></TR>
+            
+			<TR><TD >AD 2</TD><TD PORT="p2">-1</TD></TR>
+            
+			<TR><TD >AD 3</TD><TD PORT="p3">-1</TD></TR>
+            
+			<TR><TD >AD 4</TD><TD PORT="p4">-1</TD></TR>
+            
+			<TR><TD >AD 5</TD><TD PORT="p5">-1</TD></TR>
+            
+			<TR><TD >AD 6</TD><TD PORT="p6">-1</TD></TR>
+            
+			<TR><TD >AD 7</TD><TD PORT="p7">-1</TD></TR>
+            
+			<TR><TD >AD 8</TD><TD PORT="p8">-1</TD></TR>
+            
+			<TR><TD >AD 9</TD><TD PORT="p9">-1</TD></TR>
+            
+			<TR><TD >AD 10</TD><TD PORT="p10">-1</TD></TR>
+            
+			<TR><TD >AD 11</TD><TD PORT="p11">-1</TD></TR>
+            
+			<TR><TD >AD 12</TD><TD PORT="p12">-1</TD></TR>
+            
+			<TR><TD>AI 13</TD><TD PORT="p13">-1</TD></TR>
+            
+			<TR><TD>AI 14</TD><TD PORT="p14">-1</TD></TR>
+            
+			<TR><TD>AI 15</TD><TD PORT="p15">-1</TD></TR>
+            
+	</TABLE>>, shape=plaintext ];
+	Inodo3 [ label=
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i3"><B>Inode 3</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>1</TD></TR>
+            <TR><TD>I_gid</TD><TD>1</TD></TR>
+            <TR><TD>I_size</TD><TD>96</TD></TR>
+            <TR><TD>I_type</TD><TD>0</TD></TR>
+            <TR><TD>I_perm</TD><TD>664</TD></TR>
+        
+			<TR><TD >AD 0</TD><TD PORT="p0">4</TD></TR>
+            
+			<TR><TD >AD 1</TD><TD PORT="p1">-1</TD></TR>
+            
+			<TR><TD >AD 2</TD><TD PORT="p2">-1</TD></TR>
+            
+			<TR><TD >AD 3</TD><TD PORT="p3">-1</TD></TR>
+            
+			<TR><TD >AD 4</TD><TD PORT="p4">-1</TD></TR>
+            
+			<TR><TD >AD 5</TD><TD PORT="p5">-1</TD></TR>
+            
+			<TR><TD >AD 6</TD><TD PORT="p6">-1</TD></TR>
+            
+			<TR><TD >AD 7</TD><TD PORT="p7">-1</TD></TR>
+            
+			<TR><TD >AD 8</TD><TD PORT="p8">-1</TD></TR>
+            
+			<TR><TD >AD 9</TD><TD PORT="p9">-1</TD></TR>
+            
+			<TR><TD >AD 10</TD><TD PORT="p10">-1</TD></TR>
+            
+			<TR><TD >AD 11</TD><TD PORT="p11">-1</TD></TR>
+            
+			<TR><TD >AD 12</TD><TD PORT="p12">-1</TD></TR>
+            
+			<TR><TD>AI 13</TD><TD PORT="p13">-1</TD></TR>
+            
+			<TR><TD>AI 14</TD><TD PORT="p14">-1</TD></TR>
+            
+			<TR><TD>AI 15</TD><TD PORT="p15">-1</TD></TR>
+            
+	</TABLE>>, shape=plaintext ];
+	Inodo4 [ label=
+        <<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" BGCOLOR="lightblue">
+            <TR><TD COLSPAN="2" PORT="i4"><B>Inode 4</B></TD></TR>
+            <TR><TD>I_uid</TD><TD>1</TD></TR>
+            <TR><TD>I_gid</TD><TD>1</TD></TR>
+            <TR><TD>I_size</TD><TD>16</TD></TR>
+            <TR><TD>I_type</TD><TD>1</TD></TR>
+            <TR><TD>I_perm</TD><TD>664</TD></TR>
+        
+			<TR><TD >AD 0</TD><TD PORT="p0">5</TD></TR>
+            
+			<TR><TD >AD 1</TD><TD PORT="p1">-1</TD></TR>
+            
+			<TR><TD >AD 2</TD><TD PORT="p2">-1</TD></TR>
+            
+			<TR><TD >AD 3</TD><TD PORT="p3">-1</TD></TR>
+            
+			<TR><TD >AD 4</TD><TD PORT="p4">-1</TD></TR>
+            
+			<TR><TD >AD 5</TD><TD PORT="p5">-1</TD></TR>
+            
+			<TR><TD >AD 6</TD><TD PORT="p6">-1</TD></TR>
+            
+			<TR><TD >AD 7</TD><TD PORT="p7">-1</TD></TR>
+            
+			<TR><TD >AD 8</TD><TD PORT="p8">-1</TD></TR>
+            
+			<TR><TD >AD 9</TD><TD PORT="p9">-1</TD></TR>
+            
+			<TR><TD >AD 10</TD><TD PORT="p10">-1</TD></TR>
+            
+			<TR><TD >AD 11</TD><TD PORT="p11">-1</TD></TR>
+            
+			<TR><TD >AD 12</TD><TD PORT="p12">-1</TD></TR>
+            
+			<TR><TD>AI 13</TD><TD PORT="p13">-1</TD></TR>
+            
+			<TR><TD>AI 14</TD><TD PORT="p14">-1</TD></TR>
+            
+			<TR><TD>AI 15</TD><TD PORT="p15">-1</TD></TR>
+            
+	</TABLE>>, shape=plaintext ];
+
+	Inodo0:p0 -> Bloque0:b0
+	Inodo0:p1 -> Bloque3:b3
+	 Bloque0:p2:e -> Inodo1:i1:w 
+	 Bloque0:p3:e -> Inodo2:i2:w 
+	 Bloque3:p2:e -> Inodo4:i4:w 
+	Inodo1:p0 -> Bloque1:b1
+	Inodo2:p0 -> Bloque2:b2
+	 Bloque2:p2:e -> Inodo1:i1:w 
+	 Bloque2:p3:e -> Inodo2:i2:w 
+	Inodo3:p0 -> Bloque4:b4
+	 Bloque4:p0:e -> Inodo3:i3:w 
+	Inodo4:p0 -> Bloque5:b5
+
+}
