@@ -5,7 +5,11 @@ import axios from 'axios';
 import myImage from './img/disco.png';
 import particionImage from './img/particion.png';
 import anonymus from './img/user.webp';
-import Swal from 'sweetalert2'
+import carpeta from './img/carpeta.png';
+import txt from './img/txt.png';
+import Swal from 'sweetalert2';
+import Button from 'react-bootstrap/Button';
+import Modal from 'react-bootstrap/Modal';
 // or via CommonJS
 
 
@@ -22,9 +26,39 @@ function App() {
   const [userValue, setUserValue] = useState('');
   const [passValue, setPassValue] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [fileContent, setFileContent] = useState('');
+  const [modalShow, setModalShow] = React.useState(false);
 
   const handleNavClick = (option) => {
     setSelectedOption(option);
+  }
+
+  function MyVerticallyCenteredModal(props) {
+    return (
+      <Modal
+        {...props}
+        size="lg"
+        aria-labelledby="contained-modal-title-vcenter"
+        centered
+      >
+        <Modal.Header style={{position: 'relative'}}>
+  <Modal.Title id="contained-modal-title-vcenter">
+    Users.txt
+  </Modal.Title>
+  <Button 
+    onClick={props.onHide} 
+    style={{backgroundColor: 'transparent', color: 'black', border: 'none', position: 'absolute', top: '10px', right: '10px'}}
+  >
+    X
+  </Button>
+</Modal.Header>
+        <Modal.Body>
+          <p>
+            {fileContent}
+          </p>
+        </Modal.Body>
+      </Modal>
+    );
   }
 
   const Login = () => {
@@ -57,6 +91,7 @@ function App() {
               text: "Tu sesión ha sido iniciada correctamente",
               icon: "success"
             });
+            setSelectedOption('Pantalla 5');
           }
         });
       }
@@ -137,13 +172,32 @@ function App() {
       });
   };
 
+  const handleButtonClick = (buttonType) => {
+    if (buttonType === 'userstxt') {
+      axios.get('http://localhost:3000/usersTxt').then(function (response) {
+        setFileContent(response.data.UsersTxtData);
+        setModalShow(true);
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+    }
+  };
+
   useEffect(() => {
     if (selectedOption === 'Pantalla 2') {
       fetchNumber();
     }
   }, [selectedOption]);
 
-
+/*<button 
+  style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
+  onClick={() => handleButtonClick('carpeta')}
+>
+  <img src={carpeta} alt="Carpeta" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+  <br />
+  Carpeta
+</button>*/
 
   return (
     <>
@@ -201,8 +255,7 @@ function App() {
           </div>
         </div>}
         {selectedOption === 'Pantalla 3' && <div className="gridItem">Grid for Option 3</div>}
-        {selectedOption === 'Pantalla 4' && 
-        <div className="gridItem" style={{ 
+        {selectedOption === 'Pantalla 4' && <div className="gridItem" style={{ 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'flex-start', 
@@ -244,9 +297,31 @@ function App() {
         Iniciar sesión
       </button>
           </form>
-        </div>
-      }
+        </div>}
+        {selectedOption === 'Pantalla 5' && 
+          <div className="gridItem">
+            <div className="chatContainer">
+              <div style={{width: '100%', height: '100%', backgroundColor: '#404040'}}>
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridGap: '4px'}}>
+                  
+                  <button 
+                    style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
+                    onClick={() => handleButtonClick('userstxt')}
+                  >
+                    <img src={txt} alt="Txt" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+                    <br />
+                    Txt
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        }
       </div>
+      <MyVerticallyCenteredModal
+        show={modalShow}
+        onHide={() => setModalShow(false)}
+      />
     </>
   )
 }

@@ -65,6 +65,7 @@ func main() {
 	router.HandleFunc("/getParticiones", getParticiones).Methods("POST")
 	router.HandleFunc("/login", Login).Methods("POST")
 	router.HandleFunc("/logout", CS).Methods("GET")
+	router.HandleFunc("/usersTxt", UsersTxt).Methods("GET")
 
 	handler := allowCORS(router)
 	fmt.Println("Se esta escuchando en el puerto 3000")
@@ -90,12 +91,32 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logued = Comandos.Login(datos.User, datos.Pass, datos.ID)
+
 	if logued {
 		w.WriteHeader(http.StatusOK) // Devuelve el código de estado 200
 	} else {
 		w.WriteHeader(http.StatusNotFound) // Devuelve el código de estado 404
 	}
 
+}
+
+func UsersTxt(w http.ResponseWriter, r *http.Request) {
+	// Leer el archivo de usuarios
+
+	txt := Comandos.UsersTxt(Comandos.Logged.User, Comandos.Logged.Password, Comandos.Logged.Id)
+
+	// Crear el objeto JSON
+	jsonData := map[string]string{"UsersTxtData": txt}
+
+	// Establecer el tipo de contenido de la respuesta
+	w.Header().Set("Content-Type", "application/json")
+
+	// Codificar el objeto JSON y enviarlo en la respuesta
+	err := json.NewEncoder(w).Encode(jsonData)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func getParticiones(w http.ResponseWriter, r *http.Request) {

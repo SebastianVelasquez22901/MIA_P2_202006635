@@ -141,6 +141,69 @@ func Login(u string, p string, id string) bool {
 	return false
 }
 
+func UsersTxt(u string, p string, id string) string {
+	var path string
+	partition := GetMount("LOGIN", id, &path)
+	if string(partition.Part_status) == "0" {
+		Error("LOGIN", "No se encontró la partición montada con el id: "+id)
+		return ""
+	}
+	//file, err := os.OpenFile(strings.ReplaceAll(path, "\"", ""), os.O_WRONLY, os.ModeAppend)
+	file, err := os.Open(strings.ReplaceAll(path, "\"", ""))
+	if err != nil {
+		Error("LOGIN", "No se ha encontrado el disco.")
+		return ""
+	}
+
+	super := Structs.NewSuperBloque()
+	file.Seek(partition.Part_start, 0)
+	data := leerBytes(file, int(unsafe.Sizeof(Structs.SuperBloque{})))
+	buffer := bytes.NewBuffer(data)
+	err_ := binary.Read(buffer, binary.BigEndian, &super)
+	if err_ != nil {
+		Error("LOGIN", "Error al leer el archivo")
+		return ""
+	}
+	inode := Structs.NewInodos()
+	file.Seek(super.S_inode_start+int64(unsafe.Sizeof(Structs.Inodos{})), 0)
+	data = leerBytes(file, int(unsafe.Sizeof(Structs.Inodos{})))
+	buffer = bytes.NewBuffer(data)
+	err_ = binary.Read(buffer, binary.BigEndian, &inode)
+	if err_ != nil {
+		Error("LOGIN", "Error al leer el archivo")
+		return ""
+	}
+	var fb Structs.BloquesArchivos
+	txt := ""
+	MitadBA := (partition.Part_size - super.S_block_start) / 2
+	MitadBA = MitadBA + super.S_block_start
+	TamBA := int64(unsafe.Sizeof(Structs.BloquesArchivos{}))
+	PunteroBA := MitadBA
+	for bloque := 1; bloque < 16; bloque++ {
+		if inode.I_block[bloque-1] == -1 {
+			break
+		}
+		file.Seek(PunteroBA, 0)
+		data = leerBytes(file, int(TamBA))
+		buffer = bytes.NewBuffer(data)
+		err_ = binary.Read(buffer, binary.BigEndian, &fb)
+
+		if err_ != nil {
+			Error("LOGIN", "Error al leer el archivo")
+			return ""
+		}
+		PunteroBA += TamBA
+
+		for i := 0; i < len(fb.B_content); i++ {
+			if fb.B_content[i] != 0 {
+				txt += string(fb.B_content[i])
+			}
+		}
+	}
+
+	return txt
+}
+
 func CerrarSesion() bool {
 	Mensaje("LOGOUT", "¡Hasta luego, "+Logged.User+"!")
 	Logged = UsuarioActivo{}
