@@ -6,11 +6,13 @@ import myImage from './img/disco.png';
 import particionImage from './img/particion.png';
 import anonymus from './img/user.webp';
 import carpetaimg from './img/carpeta.png';
+import SVG from './img/svg.png';
 import txt from './img/txt.png';
 import Swal from 'sweetalert2';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import { FaArrowCircleLeft } from "react-icons/fa";
+import { Graphviz } from 'graphviz-react';
 // or via CommonJS
 
 
@@ -29,14 +31,30 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [fileContent, setFileContent] = useState('');
   const [Title, setTitle] = useState('');
+  const [dotString, setDotString] = useState('');
   const [modalShow, setModalShow] = React.useState(false);
+  const [reporteShow, setReporteShow] = React.useState(false);
   const [carpetas, setCarpetas] = useState([]);
   const [archivos, setArchivos] = useState([]);
+  const [reportes, setReportes] = useState([]);
   let arrayArchivos = [];
 
 
+  const LlamarReportes = () => {
+    axios.get('http://localhost:3000/reportes').then(function (response) {
+      setReportes(response.data.ListaReportes);
+      console.log(response.data.ListaReportes);
+    })
+    .catch(function (error) {
+      console.log(error);
+    });
+  }
+
   const handleNavClick = (option) => {
     setSelectedOption(option);
+    if (option === "Pantalla 3") {
+      LlamarReportes();
+    }
   }
 
   function MyVerticallyCenteredModal(props) {
@@ -67,6 +85,33 @@ function App() {
     );
   }
 
+  function VentanaReport(props) {
+  
+    return (
+      <Modal
+        {...props}
+        size="lg"
+        aria-labelledby="contained-modal-title-vcenter"
+        centered
+      >
+        <Modal.Header style={{position: 'relative'}}>
+          <Modal.Title id="contained-modal-title-vcenter">
+            {Title}
+          </Modal.Title>
+          <Button 
+            onClick={props.onHide} 
+            style={{backgroundColor: 'transparent', color: 'black', border: 'none', position: 'absolute', top: '10px', right: '10px'}}
+          >
+            X
+          </Button>
+        </Modal.Header>
+        <Modal.Body style={{display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
+            <Graphviz dot={dotString} />
+        </Modal.Body>
+      </Modal>
+    );
+  }
+
   const CarpetasArchivos = () => {
     axios.get('http://localhost:3000/carpetaArchivos').then(function (response) {    
     setCarpetas(response.data.Carpetas);
@@ -77,7 +122,6 @@ function App() {
       console.log(error);
     });
   }
-
 
   const Login = (event) => {
     event.preventDefault();
@@ -234,11 +278,18 @@ function App() {
     
   };
 
+  const generarVentanaReporte = (reporte) => {
+    setReporteShow(true);
+    setTitle(reporte.NombreReporte);
+    setDotString(reporte.DotString);
+
+  }
+
   useEffect(() => {
     if (selectedOption === 'Pantalla 2') {
       fetchNumber();
     }
-  }, [selectedOption, carpetas, archivos]);
+  }, [selectedOption, carpetas, archivos, reportes]);
 
 /*<button 
   style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
@@ -304,7 +355,38 @@ function App() {
             </div>
           </div>
         </div>}
-        {selectedOption === 'Pantalla 3' && <div className="gridItem">Grid for Option 3</div>}
+        {selectedOption === 'Pantalla 3' && <div className="gridItem">
+        
+            <div className="chatContainer">
+              <div style={{width: '100%', height: '100%', backgroundColor: '#404040'}}>
+              <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridGap: '18px'}}>
+              {reportes.map((reporte, index) => {
+              // Genera un color aleatorio en formato hexadecimal
+              const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
+
+              return (
+                <button 
+                  key={index} 
+                  style={{
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center',
+                    backgroundColor: randomColor,
+                  }}
+                  onClick={() => {
+                    generarVentanaReporte(reporte);
+                  }}
+                >
+                  <img src={SVG} alt="Reporte" style={{width: '50px', height: '50px'}} />
+                  <div>{reporte.NombreReporte ? reporte.NombreReporte : "No disponible"}</div>
+                </button>
+              );
+            })}
+                </div>
+              </div>
+            </div>
+        
+        </div>}
         {selectedOption === 'Pantalla 4' && <div className="gridItem" style={{ 
           display: 'flex', 
           justifyContent: 'center', 
@@ -399,6 +481,10 @@ function App() {
       <MyVerticallyCenteredModal
         show={modalShow}
         onHide={() => setModalShow(false)}
+      />
+      <VentanaReport
+        show={reporteShow}
+        onHide={() => setReporteShow(false)}
       />
     </>
   )

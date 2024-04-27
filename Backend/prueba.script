@@ -1,1 +1,1 @@
-mount -driveletter=A -name=ParticionEXT2
+rep -id=A165 -path=ReporteExt3BmInode -name=bm_inode

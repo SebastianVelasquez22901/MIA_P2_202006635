@@ -6,10 +6,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -37,7 +35,17 @@ type ContenidoFront struct {
 	Archivos []ArchivoFront
 }
 
+type Reporte struct {
+	NombreReporte string
+	DotString     string
+}
+
+type Reportes struct {
+	ListaReportes []Reporte
+}
+
 var Ap = Apuntadores{}
+var ReportesTotal = Reportes{}
 
 func ValidarDatosReporte(context []string) {
 	name := ""
@@ -173,20 +181,14 @@ func Journal_Reporte(destino string, id string) {
 
 	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
 	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
-	if err != nil {
-		fmt.Println(err)
+
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graph.String(),
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -284,20 +286,13 @@ func SB_Reporte(destino string, id string) {
 `, spr.S_filesystem_type, spr.S_inodes_count, spr.S_blocks_count, spr.S_free_blocks_count, spr.S_free_inodes_count, string(spr.S_mtime[:]), string(spr.S_umtime[:]), spr.S_mnt_count, spr.S_magic, spr.S_inode_size, spr.S_block_size, spr.S_firts_ino, spr.S_first_blo, spr.S_bm_inode_start, spr.S_bm_block_start, spr.S_inode_start, spr.S_block_start)
 	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
 	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
-	if err != nil {
-		fmt.Println(err)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graph.String(),
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -479,20 +474,14 @@ func MBR_R(path string, id string) {
 	}
 	Codigo_HTML += fmt.Sprintf(`</TABLE>>`)
 	graph.AddNode("G", "a", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
-	Rdot := path + ".dot"
-	// Guarda el código DOT en un archivo
-	err := ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
-	if err != nil {
-		fmt.Println(err)
+
+	nuevoReporte := Reporte{
+		NombreReporte: path,
+		DotString:     graph.String(),
 	}
 
-	R := path + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 }
 
 func DISK_R(path string, id string, ruta string) {
@@ -627,19 +616,13 @@ func DISK_R(path string, id string, ruta string) {
 	       node [shape=none];
 	       DiscoDuro [label=<%s>];
 	   }`, Codigo_HTML)
-	Rdot := path + ".dot"
-	// Guarda el código DOT en un archivo
-	err := ioutil.WriteFile(Rdot, []byte(dotContent), 0644)
-	if err != nil {
-		fmt.Println(err)
+	nuevoReporte := Reporte{
+		NombreReporte: path,
+		DotString:     dotContent,
 	}
-	R := path + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -844,20 +827,13 @@ func ReporteTree(destino string, id string) {
 
 	graphRaw := graphParts[0] + Direccionamiento + "\n}"
 
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
-	if errdot != nil {
-		fmt.Println(errdot)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graphRaw,
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	errdot = cmd.Run()
-	if errdot != nil {
-		fmt.Println(errdot)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -922,20 +898,13 @@ func BitMap_inodo(destino string, id string) {
 	</TABLE>>`)
 
 	graph.AddNode("G", "BitMapInodo", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
-	if err != nil {
-		fmt.Println(err)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graph.String(),
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -1000,20 +969,13 @@ func BitMap_block(destino string, id string) {
 	</TABLE>>`)
 
 	graph.AddNode("G", "BitMapBlock", map[string]string{"label": Codigo_HTML, "shape": "plaintext"})
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	err = ioutil.WriteFile(Rdot, []byte(graph.String()), 0644)
-	if err != nil {
-		fmt.Println(err)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graph.String(),
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	err = cmd.Run()
-	if err != nil {
-		fmt.Println(err)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 
@@ -1090,20 +1052,13 @@ func Report_Inode(destino string, id string) {
 	}
 
 	graphRaw := graphParts[0] + Direccionamiento + "\n}"
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
-	if errdot != nil {
-		fmt.Println(errdot)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graphRaw,
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	errdot = cmd.Run()
-	if errdot != nil {
-		fmt.Println(errdot)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 }
 
 func Report_Block(destino string, id string) {
@@ -1234,20 +1189,13 @@ func Report_Block(destino string, id string) {
 	}
 
 	graphRaw := graphParts[0] + Direccionamiento + "\n}"
-	Rdot := destino + ".dot"
-	// Guarda el código DOT en un archivo
-	errdot := ioutil.WriteFile(Rdot, []byte(graphRaw), 0644)
-	if errdot != nil {
-		fmt.Println(errdot)
+	nuevoReporte := Reporte{
+		NombreReporte: destino,
+		DotString:     graphRaw,
 	}
 
-	R := destino + ".png"
-	// Genera el archivo PNG usando la herramienta dot
-	cmd := exec.Command("dot", "-Tpng", Rdot, "-o", R)
-	errdot = cmd.Run()
-	if errdot != nil {
-		fmt.Println(errdot)
-	}
+	// Agregar el nuevo reporte a la lista de reportes
+	ReportesTotal.ListaReportes = append(ReportesTotal.ListaReportes, nuevoReporte)
 
 }
 

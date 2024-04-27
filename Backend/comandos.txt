@@ -204,6 +204,8 @@ mkfile -path=/prueba.txt -size=10
 
 #CREACION DE REPORTES EXT2------------------------------------------------
 
+
+mount -driveletter=A -name=ParticionEXT2
 rep -id=A165 -path=ReporteExt2Tree -name=tree
 rep -id=A165 -path=ReporteExt2Mbr -name=mbr
 rep -id=A165 -path=ReporteExt2Disk -name=disk
