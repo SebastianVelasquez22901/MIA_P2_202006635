@@ -5,11 +5,12 @@ import axios from 'axios';
 import myImage from './img/disco.png';
 import particionImage from './img/particion.png';
 import anonymus from './img/user.webp';
-import carpeta from './img/carpeta.png';
+import carpetaimg from './img/carpeta.png';
 import txt from './img/txt.png';
 import Swal from 'sweetalert2';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
+import { FaArrowCircleLeft } from "react-icons/fa";
 // or via CommonJS
 
 
@@ -27,7 +28,12 @@ function App() {
   const [passValue, setPassValue] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [fileContent, setFileContent] = useState('');
+  const [Title, setTitle] = useState('');
   const [modalShow, setModalShow] = React.useState(false);
+  const [carpetas, setCarpetas] = useState([]);
+  const [archivos, setArchivos] = useState([]);
+  let arrayArchivos = [];
+
 
   const handleNavClick = (option) => {
     setSelectedOption(option);
@@ -42,16 +48,16 @@ function App() {
         centered
       >
         <Modal.Header style={{position: 'relative'}}>
-  <Modal.Title id="contained-modal-title-vcenter">
-    Users.txt
-  </Modal.Title>
-  <Button 
-    onClick={props.onHide} 
-    style={{backgroundColor: 'transparent', color: 'black', border: 'none', position: 'absolute', top: '10px', right: '10px'}}
-  >
-    X
-  </Button>
-</Modal.Header>
+        <Modal.Title id="contained-modal-title-vcenter">
+          {Title}
+        </Modal.Title>
+        <Button 
+          onClick={props.onHide} 
+          style={{backgroundColor: 'transparent', color: 'black', border: 'none', position: 'absolute', top: '10px', right: '10px'}}
+        >
+          X
+        </Button>
+        </Modal.Header>
         <Modal.Body>
           <p>
             {fileContent}
@@ -61,11 +67,11 @@ function App() {
     );
   }
 
-
   const CarpetasArchivos = () => {
-    axios.get('http://localhost:3000/carpetaArchivos').then(function (response) {
-      
-      console.log(response.data); 
+    axios.get('http://localhost:3000/carpetaArchivos').then(function (response) {    
+    setCarpetas(response.data.Carpetas);
+    setArchivos(response.data.Archivos);
+    
     })
     .catch(function (error) {
       console.log(error);
@@ -118,7 +124,6 @@ function App() {
       });
     });
   }
-
 
   const fetchNumber = () => {
     axios.get('http://localhost:3000/verficadorDiscos')
@@ -184,23 +189,56 @@ function App() {
       });
   };
 
-  const handleButtonClick = (buttonType) => {
-    if (buttonType === 'userstxt') {
-      axios.get('http://localhost:3000/usersTxt').then(function (response) {
-        setFileContent(response.data.UsersTxtData);
-        setModalShow(true);
-      })
-      .catch(function (error) {
-        console.log(error);
+  const handleButtonClick = (buttonType, esArchivo) => {
+    // Buscar en arrayArchivos
+
+    if (!esArchivo) {
+      setSelectedOption('Pantalla 6');
+    } else {
+      arrayArchivos.find((archivo, index) => {
+        if (archivo.NombreCarpeta === buttonType) {
+          // Guardar la posición
+          const posicion = index + 1;
+  
+          if (buttonType === 'users.txt'){
+            const posicion = index + 1;
+            const archivoCorrespondiente = archivos.find(archivo => archivo.NumArchivo === posicion);
+            if (archivoCorrespondiente.Contenido.length > 60) {
+              setTitle(buttonType);
+              setFileContent('');
+              setFileContent(archivos[0].Contenido + archivos[1 ].Contenido);
+              setModalShow(true);
+            }
+          } else {
+            const posicion = index + 2;
+            const archivoCorrespondiente = archivos.find(archivo => archivo.NumArchivo === posicion);
+            if (archivoCorrespondiente) {
+    
+              // Hacer console.log del Contenido
+              setTitle(buttonType);
+              setFileContent(archivoCorrespondiente.Contenido);
+              setModalShow(true);
+            }
+          }
+  
+          // Buscar en archivos
+          
+    
+          return true;
+        }
+    
+        return false;
       });
     }
+
+    
   };
 
   useEffect(() => {
     if (selectedOption === 'Pantalla 2') {
       fetchNumber();
     }
-  }, [selectedOption]);
+  }, [selectedOption, carpetas, archivos]);
 
 /*<button 
   style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
@@ -316,19 +354,47 @@ function App() {
               <div style={{width: '100%', height: '100%', backgroundColor: '#404040'}}>
                 <div style={{display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gridGap: '4px'}}>
                   
-                  <button 
-                    style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
-                    onClick={() => handleButtonClick('userstxt')}
-                  >
-                    <img src={txt} alt="Txt" style={{width: '100%', height: '100%', objectFit: 'contain'}} />
-                    <br />
-                    users.txt
-                  </button>
+                  
+                  {carpetas.map((carpeta, index) => {
+                    const esArchivo = carpeta.NombreCarpeta.includes('.');
+                    const imagen = esArchivo ? txt : carpetaimg; // Asegúrate de tener una imagen para 'carpeta'
+                    if (esArchivo) {
+                      arrayArchivos.push({NombreCarpeta: carpeta.NombreCarpeta});
+                    }
+
+                    return (
+                      <button 
+                        key={index}
+                        style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
+                        onClick={() => handleButtonClick(carpeta.NombreCarpeta, esArchivo)}
+                      >
+                        <img src={imagen} alt={carpeta.NombreCarpeta} style={{width: '100%', height: '100%', objectFit: 'contain'}} />
+                        <br />
+                        {carpeta.NombreCarpeta}
+                      </button>
+                    );  
+                  })}
                 </div>
               </div>
             </div>
           </div>
         }
+        {selectedOption === 'Pantalla 6' && 
+          <div className="gridItem">
+            <div className="chatContainer">
+            <div style={{width: '100%', height: '100%', backgroundColor: '#404040'}}>
+            <button 
+                        style={{display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#404040', width: '150px', height: '80px'}}
+                        onClick={() => setSelectedOption('Pantalla 5')}
+                      >
+                        
+                        <br />
+                        <FaArrowCircleLeft />
+                      </button>
+            </div>
+            </div>
+          </div>}
+        
       </div>
       <MyVerticallyCenteredModal
         show={modalShow}

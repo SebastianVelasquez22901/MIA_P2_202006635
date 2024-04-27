@@ -28,8 +28,8 @@ type CarpetaFront struct {
 }
 
 type ArchivoFront struct {
-	NombreArchivo string
-	Contenido     string
+	NumArchivo int
+	Contenido  string
 }
 
 type ContenidoFront struct {
@@ -1348,16 +1348,10 @@ func lecturaB(file *os.File, number int) []byte {
 
 func InterfazCarpetaArchivo(id string) ContenidoFront {
 
-	Ap.Inodos = []string{}
-	Ap.Bloques = []string{}
-	Ap.Direccion = []string{}
 	TamBloqueCarpeta := int(unsafe.Sizeof(Structs.BloquesCarpetas{}))
 	TamBloqueArchivo := int(unsafe.Sizeof(Structs.BloquesArchivos{}))
 	TamInodo := int(unsafe.Sizeof(Structs.Inodos{}))
-	contenido := ContenidoFront{
-		Carpetas: []CarpetaFront{},
-		Archivos: []ArchivoFront{},
-	}
+	contenido := ContenidoFront{}
 
 	path := id[0:1]
 	path = path + ".dsk"
@@ -1437,10 +1431,10 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 
 	BCN := 0
 	BA := 0
+	CantidadArchivos := 0
 
 	for i := 0; i < int(SB.S_inodes_count); i++ {
 		Carpeta := true
-
 		file.Seek(PunteroInodos, 0)
 		data = lecturaB(file, TamInodo)
 		buffer = bytes.NewBuffer(data)
@@ -1449,17 +1443,13 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 			Comandos.Error("REP", "Error al leer el archivo")
 			return contenido
 		}
-
 		if inode.I_size != -1 {
-			labelInode := fmt.Sprintf("Inodo%d", i)
-			Ap.Inodos = append(Ap.Inodos, labelInode)
 			//Carpeta 0 Archivo 1
 			if inode.I_type == 1 {
 				Carpeta = false
 			} else if inode.I_type > 1 {
 				fmt.Println("No valido")
 			}
-
 			for j := 0; j < len(inode.I_block); j++ {
 				if inode.I_block[j] != -1 {
 					Apunta := int(inode.I_block[j])
@@ -1483,19 +1473,24 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 							Comandos.Error("REP", "Error al leer el archivo")
 							return contenido
 						}
-						nombre := ""
-						for a := 0; a < len(bc.B_content[i].B_name); a++ {
-							if bc.B_content[i].B_name[a] != 0 {
-								nombre += string(bc.B_content[i].B_name[a])
+						for i := 0; i < 4; i++ {
+							if bc.B_content[i].B_inodo != -1 {
+
+								nombre := ""
+								for a := 0; a < len(bc.B_content[i].B_name); a++ {
+									if bc.B_content[i].B_name[a] != 0 {
+										nombre += string(bc.B_content[i].B_name[a])
+									}
+								}
+								if nombre[0] != '.' {
+									nuevaCarpeta := CarpetaFront{
+										NombreCarpeta: nombre,
+									}
+									contenido.Carpetas = append(contenido.Carpetas, nuevaCarpeta)
+								}
+
 							}
 						}
-						nuevaCarpeta := CarpetaFront{
-							NombreCarpeta: nombre,
-						}
-						contenido.Carpetas = append(contenido.Carpetas, nuevaCarpeta)
-
-						labelBloque := fmt.Sprintf("Bloque%d", Apunta)
-						Ap.Bloques = append(Ap.Bloques, labelBloque)
 						BCN++
 
 					} else {
@@ -1504,7 +1499,7 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 						} else {
 							PunteroBloquesArchivos = MitadBA + (int64(Apunta-CantidadBloquesCarpetas) * int64(TamBloqueArchivo))
 						}
-
+						CantidadArchivos += 1
 						var fb Structs.BloquesArchivos
 						file.Seek(PunteroBloquesArchivos, 0)
 						data = lecturaB(file, TamBloqueArchivo)
@@ -1524,7 +1519,11 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 								break
 							}
 						}
-
+						nuevoArchivo := ArchivoFront{
+							NumArchivo: CantidadArchivos,
+							Contenido:  txt,
+						}
+						contenido.Archivos = append(contenido.Archivos, nuevoArchivo)
 						BA++
 					}
 
@@ -1535,5 +1534,6 @@ func InterfazCarpetaArchivo(id string) ContenidoFront {
 		}
 		PunteroInodos += int64(TamInodo)
 	}
+
 	return contenido
 }
